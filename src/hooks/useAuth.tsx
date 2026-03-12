@@ -22,37 +22,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Fetch username separately, never block loading on it
   useEffect(() => {
+    if (!user) {
+      setUsername(null);
+      return;
+    }
+    supabase
+      .from("profiles")
+      .select("username")
+      .eq("user_id", user.id)
+      .single()
+      .then(({ data }) => setUsername(data?.username ?? null));
+  }, [user]);
+
+  useEffect(() => {
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-
-        if (session?.user) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("username")
-            .eq("user_id", session.user.id)
-            .single();
-          setUsername(data?.username ?? null);
-        } else {
-          setUsername(null);
-        }
         setLoading(false);
       }
     );
 
+    // Then check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        supabase
-          .from("profiles")
-          .select("username")
-          .eq("user_id", session.user.id)
-          .single()
-          .then(({ data }) => setUsername(data?.username ?? null));
-      }
       setLoading(false);
     });
 
@@ -69,7 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (username: string, password: string) => {
-    // Check if username exists
     const { data: exists } = await supabase.rpc("check_username_exists", {
       p_username: username,
     });
