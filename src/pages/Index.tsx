@@ -2,6 +2,17 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Training = {
   id: string;
@@ -131,27 +142,82 @@ function ArchiveView({ trainings, onDelete }: { trainings: Training[]; onDelete:
   );
 }
 
-// Bottom nav
-function BottomNav({ current, onChange }: { current: string; onChange: (v: string) => void }) {
+// Bottom nav with profile picture and logout confirmation
+function BottomNav({
+  current,
+  onChange,
+  avatarUrl,
+  displayName,
+}: {
+  current: string;
+  onChange: (v: string) => void;
+  avatarUrl: string | null;
+  displayName: string | null;
+}) {
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
   const items = [
     { key: "home", label: "Avaleht" },
     { key: "add", label: "Lisa treening" },
     { key: "archive", label: "Arhiiv" },
-    { key: "logout", label: "Logi välja" },
   ];
+
+  const handleLogout = () => {
+    setShowLogoutDialog(true);
+  };
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background flex justify-around py-2">
-      {items.map((item) => (
-        <button key={item.key} onClick={() => onChange(item.key)}
-          className="text-xs cursor-pointer bg-transparent border-none px-2 py-1"
-          style={{
-            fontWeight: current === item.key ? "bold" : "normal",
-            color: current === item.key ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-          }}>
-          {item.label}
+    <>
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background flex items-center justify-around py-2">
+        {items.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => onChange(item.key)}
+            className="text-xs cursor-pointer bg-transparent border-none px-2 py-1"
+            style={{
+              fontWeight: current === item.key ? "bold" : "normal",
+              color: current === item.key ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+
+        {/* Logout + avatar */}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 text-xs cursor-pointer bg-transparent border-none px-2 py-1"
+          style={{ color: "hsl(var(--muted-foreground))" }}
+        >
+          {avatarUrl && (
+            <Avatar className="h-6 w-6">
+              <AvatarImage src={avatarUrl} alt={displayName || "Profiil"} />
+              <AvatarFallback className="text-[10px]">
+                {(displayName || "?")[0].toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          )}
+          Logi välja
         </button>
-      ))}
-    </div>
+      </div>
+
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kas oled kindel, et soovid välja logida?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sinu sessioon lõpetatakse ja sind suunatakse sisselogimislehele.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tühista</AlertDialogCancel>
+            <AlertDialogAction onClick={() => onChange("logout")}>
+              Jah, logi välja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -161,6 +227,10 @@ export default function Index() {
   const navigate = useNavigate();
   const [view, setView] = useState("home");
   const [trainings, setTrainings] = useState<Training[]>([]);
+
+  // Extract Google profile data from user metadata
+  const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
+  const displayName = username || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || null;
 
   useEffect(() => {
     if (!loading && !user) {
@@ -210,13 +280,21 @@ export default function Index() {
 
   return (
     <div style={{ maxWidth: 500, margin: "0 auto", padding: "16px 16px 70px 16px" }}>
-      <div style={{ fontSize: 12, color: "hsl(var(--muted-foreground))", marginBottom: 8 }}>
-        Sisse logitud: <strong>{username}</strong>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+        {avatarUrl && (
+          <Avatar className="h-7 w-7">
+            <AvatarImage src={avatarUrl} alt={displayName || "Profiil"} />
+            <AvatarFallback className="text-[10px]">
+              {(displayName || "?")[0].toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        )}
+        <span>Sisse logitud: <strong>{displayName}</strong></span>
       </div>
       {view === "home" && <HomeView trainings={trainings} />}
       {view === "add" && <AddView onAdd={addTraining} />}
       {view === "archive" && <ArchiveView trainings={trainings} onDelete={deleteTraining} />}
-      <BottomNav current={view} onChange={handleNav} />
+      <BottomNav current={view} onChange={handleNav} avatarUrl={avatarUrl} displayName={displayName} />
     </div>
   );
 }
