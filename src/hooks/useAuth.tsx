@@ -22,18 +22,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch username separately, never block loading on it
+  // Fetch or create profile for user (handles Google OAuth users too)
   useEffect(() => {
     if (!user) {
       setUsername(null);
       return;
     }
-    supabase
-      .from("profiles")
-      .select("username")
-      .eq("user_id", user.id)
-      .single()
-      .then(({ data }) => setUsername(data?.username ?? null));
+    const ensureProfile = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (data) {
+        setUsername(data.username);
+      } else {
+        // Auto-create profile for OAuth users
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email?.split("@")[0] ||
+          "kasutaja";
+        await supabase
+          .from("profiles")
+          .insert({ user_id: user.id, username: name });
+        setUsername(name);
+      }
+    };
+    ensureProfile();
   }, [user]);
 
   useEffect(() => {
