@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Training, TrainingGroup } from "@/types/training";
+import { Training } from "@/types/training";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
