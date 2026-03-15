@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
+import { supabase } from "@/integrations/supabase/client";
+import { Eye, EyeOff, Lock } from "lucide-react";
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
