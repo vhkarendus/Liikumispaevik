@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { lovable } from "@/integrations/lovable/index";
+import PasswordInput from "@/components/diary/PasswordInput";
 
 export default function Login() {
   const { user, loading: authLoading } = useAuth();
@@ -98,11 +99,9 @@ export default function Login() {
       </div>
       <div style={{ marginBottom: 14 }}>
         <label style={{ display: "block", marginBottom: 4, fontSize: 14 }}>Parool</label>
-        <input
-          type="password"
+        <PasswordInput
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background"
+          onChange={setPassword}
           onKeyDown={(e) => e.key === "Enter" && handleLogin()}
         />
       </div>

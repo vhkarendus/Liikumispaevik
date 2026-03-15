@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
+import { supabase } from "@/integrations/supabase/client";
+import { Eye, EyeOff } from "lucide-react";
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -12,10 +14,12 @@ export default function HomeView({
   trainings,
   groups,
   friendCode,
+  onUpdateTrainings,
 }: {
   trainings: Training[];
   groups: TrainingGroup[];
   friendCode: string | null;
+  onUpdateTrainings: (updated: Training[]) => void;
 }) {
   const [displayCount, setDisplayCount] = useState(5);
   const [sortBy, setSortBy] = useState<SortOption>("newest");
@@ -128,7 +132,7 @@ export default function HomeView({
           </div>
           <div className="text-xs text-muted-foreground mb-2">{items.length} treeningut</div>
           {items.map((t) => (
-            <TrainingCard key={t.id} training={t} />
+            <TrainingCard key={t.id} training={t} onUpdateTrainings={onUpdateTrainings} trainings={trainings} />
           ))}
         </div>
       ))}
@@ -137,19 +141,35 @@ export default function HomeView({
       {groupedTrainings.ungrouped.length === 0 && groupedTrainings.grouped.length === 0 ? (
         <p className="text-sm">Treeninguid pole veel lisatud.</p>
       ) : (
-        groupedTrainings.ungrouped.map((t) => <TrainingCard key={t.id} training={t} />)
+        groupedTrainings.ungrouped.map((t) => <TrainingCard key={t.id} training={t} onUpdateTrainings={onUpdateTrainings} trainings={trainings} />)
       )}
     </div>
   );
 }
 
-function TrainingCard({ training: t }: { training: Training }) {
-  const visLabel = t.visibility === "private" ? "🔒" : t.visibility === "hidden" ? "👁️‍🗨️" : "";
+function TrainingCard({ training: t, onUpdateTrainings, trainings }: { training: Training; onUpdateTrainings: (updated: Training[]) => void; trainings: Training[] }) {
+  const visLabel = t.visibility === "private" ? "🔒 Privaatne" : t.visibility === "hidden" ? "👁️‍🗨️ Peidetud" : "👥 Sõpradele";
+  
+  const toggleVisibility = async () => {
+    const next = t.visibility === "friends" ? "private" : "friends";
+    await supabase.from("trainings").update({ visibility: next }).eq("id", t.id);
+    onUpdateTrainings(trainings.map((tr) => tr.id === t.id ? { ...tr, visibility: next } : tr));
+  };
+
   return (
     <div className="border border-border rounded-sm p-3 mb-2 bg-card">
-      <div className="flex items-center gap-1">
-        <span className="text-sm font-bold">{t.name}</span>
-        {visLabel && <span className="text-xs">{visLabel}</span>}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-bold">{t.name}</span>
+        </div>
+        <button
+          onClick={toggleVisibility}
+          className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
+          title="Muuda nähtavust"
+        >
+          {t.visibility === "private" ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+          <span>{visLabel}</span>
+        </button>
       </div>
       <div className="text-muted-foreground text-[13px]">
         {t.date} · {t.duration} min

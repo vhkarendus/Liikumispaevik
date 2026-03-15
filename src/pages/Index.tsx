@@ -115,7 +115,7 @@ export default function Index() {
         <span>Sisse logitud: <strong>{displayName}</strong></span>
       </div>
 
-      {view === "home" && <HomeView trainings={trainings} groups={groups} friendCode={friendCode} />}
+      {view === "home" && <HomeView trainings={trainings} groups={groups} friendCode={friendCode} onUpdateTrainings={setTrainings} />}
       {view === "add" && <AddView onAdd={addTraining} onAddPeriod={addPeriod} />}
       {view === "archive" && <ArchiveView trainings={trainings} groups={groups} onDelete={deleteTraining} />}
       {view === "friends" && <FriendsView />}
