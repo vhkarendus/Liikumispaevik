@@ -32,7 +32,7 @@ export default function Index() {
 
     const fetchAll = async () => {
       const [trainingsRes, groupsRes, profileRes, requestsRes] = await Promise.all([
-        supabase.from("trainings").select("*").order("date", { ascending: false }),
+        supabase.from("trainings").select("*").eq("user_id", user.id).order("date", { ascending: false }),
         supabase.from("training_groups").select("*").order("start_date", { ascending: false }),
         supabase.from("profiles").select("friend_code").eq("user_id", user.id).maybeSingle(),
         supabase.from("friendships").select("id").eq("addressee_id", user.id).eq("status", "pending"),
