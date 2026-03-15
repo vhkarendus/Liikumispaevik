@@ -2,6 +2,12 @@ import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -34,6 +40,9 @@ export default function HomeView({
 
   const filtered = useMemo(() => {
     let result = [...trainings];
+
+    // Filter out hidden trainings from home view
+    result = result.filter((t) => t.visibility !== "hidden");
 
     if (filterType) result = result.filter((t) => t.name === filterType);
     if (filterDateFrom) result = result.filter((t) => t.date >= filterDateFrom);
@@ -150,10 +159,9 @@ export default function HomeView({
 function TrainingCard({ training: t, onUpdateTrainings, trainings }: { training: Training; onUpdateTrainings: (updated: Training[]) => void; trainings: Training[] }) {
   const visLabel = t.visibility === "private" ? "🔒 Privaatne" : t.visibility === "hidden" ? "👁️‍🗨️ Peidetud" : "👥 Sõpradele";
   
-  const toggleVisibility = async () => {
-    const next = t.visibility === "friends" ? "private" : "friends";
-    await supabase.from("trainings").update({ visibility: next }).eq("id", t.id);
-    onUpdateTrainings(trainings.map((tr) => tr.id === t.id ? { ...tr, visibility: next } : tr));
+  const updateVisibility = async (newVisibility: string) => {
+    await supabase.from("trainings").update({ visibility: newVisibility }).eq("id", t.id);
+    onUpdateTrainings(trainings.map((tr) => tr.id === t.id ? { ...tr, visibility: newVisibility } : tr));
   };
 
   return (
@@ -162,14 +170,31 @@ function TrainingCard({ training: t, onUpdateTrainings, trainings }: { training:
         <div className="flex items-center gap-1">
           <span className="text-sm font-bold">{t.name}</span>
         </div>
-        <button
-          onClick={toggleVisibility}
-          className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
-          title="Muuda nähtavust"
-        >
-          {t.visibility === "private" ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-          <span>{visLabel}</span>
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
+              title="Muuda nähtavust"
+            >
+              {t.visibility === "private" ? <EyeOff className="h-3 w-3" /> : t.visibility === "hidden" ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              <span>{visLabel}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => updateVisibility("friends")}>
+              <Eye className="h-3 w-3 mr-2" />
+              👥 Sõpradele nähtav
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateVisibility("private")}>
+              <EyeOff className="h-3 w-3 mr-2" />
+              🔒 Privaatne
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateVisibility("hidden")}>
+              <EyeOff className="h-3 w-3 mr-2" />
+              👁️‍🗨️ Peidetud
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className="text-muted-foreground text-[13px]">
         {t.date} · {t.duration} min
