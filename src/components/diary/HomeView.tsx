@@ -176,7 +176,7 @@ function TrainingCard({ training: t, onUpdateTrainings, trainings }: { training:
               className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
               title="Muuda nähtavust"
             >
-              {t.visibility === "private" ? <EyeOff className="h-3 w-3" /> : t.visibility === "hidden" ? <EyeSlash className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              {t.visibility === "private" ? <EyeOff className="h-3 w-3" /> : t.visibility === "hidden" ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
               <span>{visLabel}</span>
             </button>
           </DropdownMenuTrigger>
