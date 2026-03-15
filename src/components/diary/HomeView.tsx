@@ -132,7 +132,7 @@ export default function HomeView({
           </div>
           <div className="text-xs text-muted-foreground mb-2">{items.length} treeningut</div>
           {items.map((t) => (
-            <TrainingCard key={t.id} training={t} />
+            <TrainingCard key={t.id} training={t} onUpdateTrainings={onUpdateTrainings} trainings={trainings} />
           ))}
         </div>
       ))}
