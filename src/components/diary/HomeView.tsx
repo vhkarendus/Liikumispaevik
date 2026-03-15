@@ -190,7 +190,7 @@ function TrainingCard({ training: t, onUpdateTrainings, trainings }: { training:
               🔒 Privaatne
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => updateVisibility("hidden")}>
-              <EyeSlash className="h-3 w-3 mr-2" />
+              <EyeOff className="h-3 w-3 mr-2" />
               👁️‍🗨️ Peidetud
             </DropdownMenuItem>
           </DropdownMenuContent>
