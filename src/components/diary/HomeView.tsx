@@ -1,7 +1,13 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, EyeSlash } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
