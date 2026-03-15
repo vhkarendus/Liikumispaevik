@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import PasswordInput from "@/components/diary/PasswordInput";
 
 export default function Register() {
   const [username, setUsername] = useState("");
@@ -56,20 +57,13 @@ export default function Register() {
       </div>
       <div style={{ marginBottom: 10 }}>
         <label style={{ display: "block", marginBottom: 4, fontSize: 14 }}>Parool</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background"
-        />
+        <PasswordInput value={password} onChange={setPassword} />
       </div>
       <div style={{ marginBottom: 14 }}>
         <label style={{ display: "block", marginBottom: 4, fontSize: 14 }}>Parool uuesti</label>
-        <input
-          type="password"
+        <PasswordInput
           value={password2}
-          onChange={(e) => setPassword2(e.target.value)}
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background"
+          onChange={setPassword2}
           onKeyDown={(e) => e.key === "Enter" && handleRegister()}
         />
       </div>
