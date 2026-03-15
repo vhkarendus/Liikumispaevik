@@ -141,7 +141,7 @@ export default function HomeView({
       {groupedTrainings.ungrouped.length === 0 && groupedTrainings.grouped.length === 0 ? (
         <p className="text-sm">Treeninguid pole veel lisatud.</p>
       ) : (
-        groupedTrainings.ungrouped.map((t) => <TrainingCard key={t.id} training={t} />)
+        groupedTrainings.ungrouped.map((t) => <TrainingCard key={t.id} training={t} onUpdateTrainings={onUpdateTrainings} trainings={trainings} />)
       )}
     </div>
   );
