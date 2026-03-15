@@ -41,6 +41,9 @@ export default function HomeView({
   const filtered = useMemo(() => {
     let result = [...trainings];
 
+    // Filter out hidden trainings from home view
+    result = result.filter((t) => t.visibility !== "hidden");
+
     if (filterType) result = result.filter((t) => t.name === filterType);
     if (filterDateFrom) result = result.filter((t) => t.date >= filterDateFrom);
     if (filterDateTo) result = result.filter((t) => t.date <= filterDateTo);
