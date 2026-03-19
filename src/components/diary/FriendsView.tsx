@@ -30,6 +30,55 @@ function OnlineIndicator({ lastSeen }: { lastSeen: string | null }) {
   );
 }
 
+function effortLabel(t: Training) {
+  if (!t.effort_type || !t.effort_value) return null;
+  if (t.effort_type === "effort") return `Pingutus: ${t.effort_value}/10`;
+  if (t.effort_type === "heart_rate") return `Pulss: ${t.effort_value} BPM`;
+  return null;
+}
+
+function FriendStats({ friend }: { friend: FriendProfile }) {
+  const [stats, setStats] = useState<{ joined: string; count: number; totalMinutes: number } | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      const [profileRes, trainingsRes] = await Promise.all([
+        supabase.from("profiles").select("created_at").eq("user_id", friend.user_id).maybeSingle(),
+        supabase.from("trainings").select("duration").eq("user_id", friend.user_id),
+      ]);
+      const joined = profileRes.data?.created_at
+        ? new Date(profileRes.data.created_at).toLocaleDateString("et-EE")
+        : "Tundmatu";
+      const allTrainings = trainingsRes.data || [];
+      const totalMinutes = allTrainings.reduce((sum, t) => sum + (t.duration || 0), 0);
+      setStats({ joined, count: allTrainings.length, totalMinutes });
+    };
+    load();
+  }, [friend.user_id]);
+
+  if (!stats) return null;
+
+  return (
+    <div className="border border-border rounded-sm p-3 mb-3 bg-card">
+      <div className="text-xs font-medium text-muted-foreground mb-2">Statistika</div>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <div className="text-lg font-bold text-primary">{stats.count}</div>
+          <div className="text-[11px] text-muted-foreground">Treeningut</div>
+        </div>
+        <div>
+          <div className="text-lg font-bold text-primary">{stats.totalMinutes}</div>
+          <div className="text-[11px] text-muted-foreground">Minutit kokku</div>
+        </div>
+        <div>
+          <div className="text-xs font-medium text-primary mt-1">{stats.joined}</div>
+          <div className="text-[11px] text-muted-foreground">Liitus</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FriendsView() {
   const { user } = useAuth();
   const [tab, setTab] = useState<"friends" | "requests">("friends");
@@ -133,7 +182,17 @@ export default function FriendsView() {
           className="text-sm text-primary cursor-pointer bg-transparent border-none underline mb-3">
           ← Tagasi
         </button>
-        <h2 className="text-lg font-medium mb-3">{viewTrainings.friend.username} treeningud</h2>
+        <div className="flex items-center gap-2 mb-3">
+          <Avatar className="h-8 w-8">
+            {viewTrainings.friend.avatar_url ? <AvatarImage src={viewTrainings.friend.avatar_url} /> : null}
+            <AvatarFallback className="text-xs">{viewTrainings.friend.username[0].toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <h2 className="text-lg font-medium">{viewTrainings.friend.username}</h2>
+        </div>
+
+        <FriendStats friend={viewTrainings.friend} />
+
+        <h3 className="text-sm font-medium mb-2">Treeningud</h3>
         {viewTrainings.trainings.length === 0 ? (
           <p className="text-sm text-muted-foreground">Treeninguid pole näha.</p>
         ) : (
@@ -142,6 +201,7 @@ export default function FriendsView() {
               <div className="text-sm font-bold">{t.name}</div>
               <div className="text-muted-foreground text-[13px]">{t.date} · {t.duration} min</div>
               {t.note && <div className="text-[13px] mt-0.5">{t.note}</div>}
+              {effortLabel(t) && <div className="text-xs text-muted-foreground mt-0.5">{effortLabel(t)}</div>}
             </div>
           ))
         )}
