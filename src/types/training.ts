@@ -7,6 +7,8 @@ export type Training = {
   created_at: string;
   visibility: string;
   group_id: string | null;
+  effort_type: string | null;
+  effort_value: number | null;
 };
 
 export type TrainingGroup = {

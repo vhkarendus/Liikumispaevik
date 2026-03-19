@@ -5,18 +5,75 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 
 type NewTraining = Omit<Training, "id" | "created_at">;
 
+function EffortInput({
+  effortType, setEffortType, effortValue, setEffortValue,
+}: {
+  effortType: string;
+  setEffortType: (v: string) => void;
+  effortValue: string;
+  setEffortValue: (v: string) => void;
+}) {
+  return (
+    <div className="mb-2">
+      <label className="block text-[13px] mb-0.5">Pingutus / Pulss</label>
+      <div className="flex gap-1 mb-1.5">
+        {[
+          { key: "", label: "Pole" },
+          { key: "effort", label: "Pingutus (1-10)" },
+          { key: "heart_rate", label: "Pulss (BPM)" },
+        ].map((opt) => (
+          <button
+            key={opt.key}
+            type="button"
+            onClick={() => { setEffortType(opt.key); setEffortValue(""); }}
+            className={`px-2 py-0.5 rounded-sm text-xs cursor-pointer border ${
+              effortType === opt.key
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-foreground border-border"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {effortType === "effort" && (
+        <input
+          type="number" min={1} max={10} value={effortValue}
+          onChange={(e) => setEffortValue(e.target.value)}
+          placeholder="1–10"
+          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background"
+        />
+      )}
+      {effortType === "heart_rate" && (
+        <input
+          type="number" min={30} max={250} value={effortValue}
+          onChange={(e) => setEffortValue(e.target.value)}
+          placeholder="Keskmine pulss (BPM)"
+          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background"
+        />
+      )}
+    </div>
+  );
+}
+
 function SingleAddForm({ onAdd }: { onAdd: (t: NewTraining) => void }) {
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [duration, setDuration] = useState("");
   const [note, setNote] = useState("");
   const [visibility, setVisibility] = useState("friends");
+  const [effortType, setEffortType] = useState("");
+  const [effortValue, setEffortValue] = useState("");
   const [msg, setMsg] = useState("");
 
   const handleSave = () => {
     if (!name || !date || !duration) return;
-    onAdd({ name, date, duration: parseInt(duration), note: note || null, visibility, group_id: null });
-    setName(""); setDate(""); setDuration(""); setNote("");
+    onAdd({
+      name, date, duration: parseInt(duration), note: note || null, visibility, group_id: null,
+      effort_type: effortType || null,
+      effort_value: effortValue ? parseInt(effortValue) : null,
+    });
+    setName(""); setDate(""); setDuration(""); setNote(""); setEffortType(""); setEffortValue("");
     setMsg("Treening lisatud!");
     setTimeout(() => setMsg(""), 2000);
   };
@@ -43,6 +100,7 @@ function SingleAddForm({ onAdd }: { onAdd: (t: NewTraining) => void }) {
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
           className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
       </div>
+      <EffortInput effortType={effortType} setEffortType={setEffortType} effortValue={effortValue} setEffortValue={setEffortValue} />
       <div className="mb-3">
         <label className="block text-[13px] mb-0.5">Nähtavus</label>
         <select value={visibility} onChange={(e) => setVisibility(e.target.value)}
@@ -68,7 +126,7 @@ function PeriodAddForm({ onAddPeriod }: {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [visibility, setVisibility] = useState("friends");
-  const [days, setDays] = useState<{ date: string; name: string; duration: string; note: string; enabled: boolean }[]>([]);
+  const [days, setDays] = useState<{ date: string; name: string; duration: string; note: string; enabled: boolean; effortType: string; effortValue: string }[]>([]);
   const [msg, setMsg] = useState("");
 
   const generateDays = () => {
@@ -77,7 +135,7 @@ function PeriodAddForm({ onAddPeriod }: {
     const end = new Date(endDate);
     const result: typeof days = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      result.push({ date: d.toISOString().slice(0, 10), name: "", duration: "", note: "", enabled: true });
+      result.push({ date: d.toISOString().slice(0, 10), name: "", duration: "", note: "", enabled: true, effortType: "", effortValue: "" });
     }
     setDays(result);
   };
@@ -94,6 +152,8 @@ function PeriodAddForm({ onAddPeriod }: {
       .map((d) => ({
         name: d.name, date: d.date, duration: parseInt(d.duration),
         note: d.note || null, visibility, group_id: null,
+        effort_type: d.effortType || null,
+        effort_value: d.effortValue ? parseInt(d.effortValue) : null,
       }));
     if (entries.length === 0) return;
     onAddPeriod({ name: groupName || "Periood", start_date: startDate, end_date: endDate }, entries);
@@ -151,16 +211,36 @@ function PeriodAddForm({ onAddPeriod }: {
                   <span className="text-xs text-muted-foreground">({weekday(day.date)})</span>
                 </div>
                 {day.enabled && (
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <input type="text" placeholder="Nimetus" value={day.name}
-                      onChange={(e) => updateDay(idx, "name", e.target.value)}
-                      className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background" />
-                    <input type="number" placeholder="Min" value={day.duration}
-                      onChange={(e) => updateDay(idx, "duration", e.target.value)}
-                      className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background" />
-                    <input type="text" placeholder="Märkus" value={day.note}
-                      onChange={(e) => updateDay(idx, "note", e.target.value)}
-                      className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background" />
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <input type="text" placeholder="Nimetus" value={day.name}
+                        onChange={(e) => updateDay(idx, "name", e.target.value)}
+                        className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background" />
+                      <input type="number" placeholder="Min" value={day.duration}
+                        onChange={(e) => updateDay(idx, "duration", e.target.value)}
+                        className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background" />
+                      <input type="text" placeholder="Märkus" value={day.note}
+                        onChange={(e) => updateDay(idx, "note", e.target.value)}
+                        className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background" />
+                    </div>
+                    <div className="flex gap-1.5 items-center">
+                      <select value={day.effortType} onChange={(e) => { updateDay(idx, "effortType", e.target.value); updateDay(idx, "effortValue", ""); }}
+                        className="border border-border rounded-sm px-1 py-0.5 text-xs bg-background">
+                        <option value="">Pole</option>
+                        <option value="effort">Pingutus</option>
+                        <option value="heart_rate">Pulss</option>
+                      </select>
+                      {day.effortType === "effort" && (
+                        <input type="number" min={1} max={10} placeholder="1-10" value={day.effortValue}
+                          onChange={(e) => updateDay(idx, "effortValue", e.target.value)}
+                          className="border border-border rounded-sm px-1 py-0.5 text-xs bg-background w-16" />
+                      )}
+                      {day.effortType === "heart_rate" && (
+                        <input type="number" min={30} max={250} placeholder="BPM" value={day.effortValue}
+                          onChange={(e) => updateDay(idx, "effortValue", e.target.value)}
+                          className="border border-border rounded-sm px-1 py-0.5 text-xs bg-background w-16" />
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
