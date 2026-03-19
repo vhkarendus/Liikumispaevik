@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -117,7 +117,7 @@ export default function Index() {
 
       {view === "home" && <HomeView trainings={trainings} groups={groups} friendCode={friendCode} onUpdateTrainings={setTrainings} />}
       {view === "add" && <AddView onAdd={addTraining} onAddPeriod={addPeriod} />}
-      {view === "archive" && <ArchiveView trainings={trainings} groups={groups} onDelete={deleteTraining} />}
+      {view === "archive" && <ArchiveView trainings={trainings} groups={groups} onDelete={deleteTraining} onUpdateTrainings={setTrainings} />}
       {view === "friends" && <FriendsView />}
 
       <BottomNav

@@ -100,6 +100,8 @@ export type Database = {
           created_at: string
           date: string
           duration: number
+          effort_type: string | null
+          effort_value: number | null
           group_id: string | null
           id: string
           name: string
@@ -111,6 +113,8 @@ export type Database = {
           created_at?: string
           date: string
           duration: number
+          effort_type?: string | null
+          effort_value?: number | null
           group_id?: string | null
           id?: string
           name: string
@@ -122,6 +126,8 @@ export type Database = {
           created_at?: string
           date?: string
           duration?: number
+          effort_type?: string | null
+          effort_value?: number | null
           group_id?: string | null
           id?: string
           name?: string

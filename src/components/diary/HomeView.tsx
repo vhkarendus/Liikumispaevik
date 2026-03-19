@@ -200,6 +200,11 @@ function TrainingCard({ training: t, onUpdateTrainings, trainings }: { training:
         {t.date} · {t.duration} min
       </div>
       {t.note && <div className="text-[13px] mt-0.5">{t.note}</div>}
+      {t.effort_type && t.effort_value && (
+        <div className="text-xs text-muted-foreground mt-0.5">
+          {t.effort_type === "effort" ? `Pingutus: ${t.effort_value}/10` : `Pulss: ${t.effort_value} BPM`}
+        </div>
+      )}
       <div className="text-muted-foreground text-[11px] mt-1">
         Lisatud: {formatDateTime(t.created_at)}
       </div>
