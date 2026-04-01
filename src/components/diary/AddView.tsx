@@ -1,56 +1,81 @@
 import { useState } from "react";
 import { Training } from "@/types/training";
+import { SPORT_TYPES } from "@/constants/sports";
+import InfoTooltip from "./InfoTooltip";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 type NewTraining = Omit<Training, "id" | "created_at">;
 
+function SportSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [isCustom, setIsCustom] = useState(!SPORT_TYPES.includes(value as any) && value !== "");
+  const [customValue, setCustomValue] = useState(isCustom ? value : "");
+
+  if (isCustom) {
+    return (
+      <div className="flex gap-1">
+        <input type="text" value={customValue}
+          onChange={(e) => { setCustomValue(e.target.value); onChange(e.target.value); }}
+          placeholder="Sisesta spordiala"
+          className="flex-1 border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+        <button type="button" onClick={() => { setIsCustom(false); onChange(SPORT_TYPES[0]); }}
+          className="text-xs text-primary cursor-pointer bg-transparent border-none underline">
+          Nimekiri
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <select value={value} onChange={(e) => {
+      if (e.target.value === "__custom__") { setIsCustom(true); onChange(""); }
+      else onChange(e.target.value);
+    }} className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background">
+      <option value="" disabled>Vali spordiala</option>
+      {SPORT_TYPES.map((s) => <option key={s} value={s}>{s}</option>)}
+      <option value="__custom__">Muu...</option>
+    </select>
+  );
+}
+
 function EffortInput({
   effortType, setEffortType, effortValue, setEffortValue,
 }: {
-  effortType: string;
-  setEffortType: (v: string) => void;
-  effortValue: string;
-  setEffortValue: (v: string) => void;
+  effortType: string; setEffortType: (v: string) => void;
+  effortValue: string; setEffortValue: (v: string) => void;
 }) {
   return (
     <div className="mb-2">
-      <label className="block text-[13px] mb-0.5">Pingutus / Pulss</label>
+      <label className="block text-[13px] mb-0.5 flex items-center">
+        Pingutus / Pulss
+        <InfoTooltip text="Pingutus: hinda oma pingutust skaalal 1-10. Pulss: sisesta keskmine treeningu pulss löökides minutis (BPM)." />
+      </label>
       <div className="flex gap-1 mb-1.5">
         {[
           { key: "", label: "Pole" },
           { key: "effort", label: "Pingutus (1-10)" },
           { key: "heart_rate", label: "Pulss (BPM)" },
         ].map((opt) => (
-          <button
-            key={opt.key}
-            type="button"
+          <button key={opt.key} type="button"
             onClick={() => { setEffortType(opt.key); setEffortValue(""); }}
             className={`px-2 py-0.5 rounded-sm text-xs cursor-pointer border ${
               effortType === opt.key
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background text-foreground border-border"
-            }`}
-          >
+            }`}>
             {opt.label}
           </button>
         ))}
       </div>
       {effortType === "effort" && (
-        <input
-          type="number" min={1} max={10} value={effortValue}
-          onChange={(e) => setEffortValue(e.target.value)}
-          placeholder="1–10"
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background"
-        />
+        <input type="number" min={1} max={10} value={effortValue}
+          onChange={(e) => setEffortValue(e.target.value)} placeholder="1–10"
+          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
       )}
       {effortType === "heart_rate" && (
-        <input
-          type="number" min={30} max={250} value={effortValue}
-          onChange={(e) => setEffortValue(e.target.value)}
-          placeholder="Keskmine pulss (BPM)"
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background"
-        />
+        <input type="number" min={30} max={250} value={effortValue}
+          onChange={(e) => setEffortValue(e.target.value)} placeholder="Keskmine pulss (BPM)"
+          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
       )}
     </div>
   );
@@ -81,9 +106,8 @@ function SingleAddForm({ onAdd }: { onAdd: (t: NewTraining) => void }) {
   return (
     <div>
       <div className="mb-2">
-        <label className="block text-[13px] mb-0.5">Treeningu nimetus</label>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+        <label className="block text-[13px] mb-0.5">Spordiala</label>
+        <SportSelect value={name} onChange={setName} />
       </div>
       <div className="mb-2">
         <label className="block text-[13px] mb-0.5">Kuupäev</label>
@@ -102,7 +126,10 @@ function SingleAddForm({ onAdd }: { onAdd: (t: NewTraining) => void }) {
       </div>
       <EffortInput effortType={effortType} setEffortType={setEffortType} effortValue={effortValue} setEffortValue={setEffortValue} />
       <div className="mb-3">
-        <label className="block text-[13px] mb-0.5">Nähtavus</label>
+        <label className="block text-[13px] mb-0.5 flex items-center">
+          Nähtavus
+          <InfoTooltip text="Sõpradele nähtav: sõbrad näevad sinu treeningut. Privaatne: ainult sina näed. Peidetud: ei näidata avalehel, aga nähtav arhiivis." />
+        </label>
         <select value={visibility} onChange={(e) => setVisibility(e.target.value)}
           className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background">
           <option value="friends">Sõpradele nähtav</option>
@@ -114,7 +141,7 @@ function SingleAddForm({ onAdd }: { onAdd: (t: NewTraining) => void }) {
         className="bg-primary text-primary-foreground px-4 py-1.5 rounded-sm text-sm cursor-pointer">
         Salvesta
       </button>
-      {msg && <p className="text-[13px] mt-2 text-green-600">{msg}</p>}
+      {msg && <p className="text-[13px] mt-2 text-primary">{msg}</p>}
     </div>
   );
 }
@@ -165,7 +192,10 @@ function PeriodAddForm({ onAddPeriod }: {
   return (
     <div>
       <div className="mb-2">
-        <label className="block text-[13px] mb-0.5">Perioodi nimi</label>
+        <label className="block text-[13px] mb-0.5 flex items-center">
+          Perioodi nimi
+          <InfoTooltip text="Periood grupeerib mitu treeningut koos. Perioodi nähtavus kehtib kõigile selle treeningutele." />
+        </label>
         <input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)}
           placeholder="nt. Treeningunädal 1"
           className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
@@ -183,7 +213,10 @@ function PeriodAddForm({ onAddPeriod }: {
         </div>
       </div>
       <div className="mb-3">
-        <label className="block text-[13px] mb-0.5">Nähtavus</label>
+        <label className="block text-[13px] mb-0.5 flex items-center">
+          Nähtavus
+          <InfoTooltip text="See kehtib kogu perioodile. Üksikuid treeninguid perioodi sees eraldi muuta ei saa." />
+        </label>
         <select value={visibility} onChange={(e) => setVisibility(e.target.value)}
           className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background">
           <option value="friends">Sõpradele nähtav</option>
@@ -213,9 +246,14 @@ function PeriodAddForm({ onAddPeriod }: {
                 {day.enabled && (
                   <div className="space-y-1.5">
                     <div className="grid grid-cols-3 gap-1.5">
-                      <input type="text" placeholder="Nimetus" value={day.name}
-                        onChange={(e) => updateDay(idx, "name", e.target.value)}
-                        className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background" />
+                      <select value={day.name} onChange={(e) => {
+                        if (e.target.value === "__custom__") updateDay(idx, "name", "");
+                        else updateDay(idx, "name", e.target.value);
+                      }} className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background">
+                        <option value="" disabled>Spordiala</option>
+                        {SPORT_TYPES.map((s) => <option key={s} value={s}>{s}</option>)}
+                        <option value="__custom__">Muu...</option>
+                      </select>
                       <input type="number" placeholder="Min" value={day.duration}
                         onChange={(e) => updateDay(idx, "duration", e.target.value)}
                         className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background" />
@@ -223,6 +261,11 @@ function PeriodAddForm({ onAddPeriod }: {
                         onChange={(e) => updateDay(idx, "note", e.target.value)}
                         className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background" />
                     </div>
+                    {day.name === "" && !SPORT_TYPES.includes(day.name as any) && (
+                      <input type="text" placeholder="Sisesta spordiala" value={day.name}
+                        onChange={(e) => updateDay(idx, "name", e.target.value)}
+                        className="border border-border rounded-sm px-1.5 py-0.5 text-xs bg-background w-full" />
+                    )}
                     <div className="flex gap-1.5 items-center">
                       <select value={day.effortType} onChange={(e) => { updateDay(idx, "effortType", e.target.value); updateDay(idx, "effortValue", ""); }}
                         className="border border-border rounded-sm px-1 py-0.5 text-xs bg-background">
@@ -252,7 +295,7 @@ function PeriodAddForm({ onAddPeriod }: {
           </button>
         </div>
       )}
-      {msg && <p className="text-[13px] mt-2 text-green-600">{msg}</p>}
+      {msg && <p className="text-[13px] mt-2 text-primary">{msg}</p>}
     </div>
   );
 }

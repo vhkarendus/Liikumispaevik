@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Pencil } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -9,6 +9,9 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import InfoTooltip from "./InfoTooltip";
+import EditTrainingDialog from "./EditTrainingDialog";
+import PdfExportButton from "./PdfExport";
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -17,37 +20,20 @@ const formatDateTime = (iso: string) => {
 
 type SortOption = "newest" | "oldest" | "duration_asc" | "duration_desc";
 
-function VisibilityDropdown({
-  current,
-  onChange,
-  label,
-}: {
-  current: string;
-  onChange: (v: string) => void;
-  label?: string;
-}) {
+function VisibilityDropdown({ current, onChange, label }: { current: string; onChange: (v: string) => void; label?: string }) {
   const visLabel = current === "private" ? "🔒 Privaatne" : current === "hidden" ? "👁️‍🗨️ Peidetud" : "👥 Sõpradele";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
-          title="Muuda nähtavust"
-        >
+        <button className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
           {current === "friends" ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
           <span>{label || visLabel}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onChange("friends")}>
-          <Eye className="h-3 w-3 mr-2" /> 👥 Sõpradele nähtav
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChange("private")}>
-          <EyeOff className="h-3 w-3 mr-2" /> 🔒 Privaatne
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChange("hidden")}>
-          <EyeOff className="h-3 w-3 mr-2" /> 👁️‍🗨️ Peidetud
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("friends")}><Eye className="h-3 w-3 mr-2" /> 👥 Sõpradele nähtav</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("private")}><EyeOff className="h-3 w-3 mr-2" /> 🔒 Privaatne</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("hidden")}><EyeOff className="h-3 w-3 mr-2" /> 👁️‍🗨️ Peidetud</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -73,6 +59,7 @@ export default function ArchiveView({
   const [filterType, setFilterType] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+  const [editTraining, setEditTraining] = useState<Training | null>(null);
 
   const trainingTypes = useMemo(() => {
     const types = new Set(trainings.map((t) => t.name));
@@ -104,13 +91,15 @@ export default function ArchiveView({
   };
 
   const updatePeriodVisibility = async (groupId: string, visibility: string) => {
-    const periodTrainings = trainings.filter((t) => t.group_id === groupId);
-    const ids = periodTrainings.map((t) => t.id);
+    const ids = trainings.filter((t) => t.group_id === groupId).map((t) => t.id);
     await supabase.from("trainings").update({ visibility }).in("id", ids);
     onUpdateTrainings(trainings.map((t) => t.group_id === groupId ? { ...t, visibility } : t));
   };
 
-  // Group filtered trainings
+  const handleSaveEdit = (updated: Training) => {
+    onUpdateTrainings(trainings.map((t) => t.id === updated.id ? updated : t));
+  };
+
   const groupMap = new Map<string, Training[]>();
   const ungrouped: Training[] = [];
   for (const t of filtered) {
@@ -124,11 +113,17 @@ export default function ArchiveView({
 
   return (
     <div>
-      <h2 className="text-lg font-medium mb-3">Arhiiv</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-medium">Arhiiv</h2>
+        <PdfExportButton trainings={filtered} groups={groups} title="Treeningute arhiiv" />
+      </div>
 
       {/* Filters */}
       <div className="border border-border rounded-sm p-3 mb-4 bg-card space-y-2">
-        <div className="text-xs font-medium text-muted-foreground mb-1">Filtrid ja sorteerimine</div>
+        <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
+          Filtrid ja sorteerimine
+          <InfoTooltip text="Filtreeri spordialade, kuupäeva ja kestuse järgi. Arhiivis on näha ka peidetud treeningud." />
+        </div>
         <div className="flex flex-wrap gap-2">
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
             className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
@@ -139,20 +134,18 @@ export default function ArchiveView({
           </select>
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
             className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
-            <option value="">Kõik treeningud</option>
+            <option value="">Kõik spordialad</option>
             {trainingTypes.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div className="flex gap-2">
           <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background" placeholder="Alates" />
+            className="border border-border rounded-sm px-2 py-1 text-xs bg-background" />
           <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background" placeholder="Kuni" />
+            className="border border-border rounded-sm px-2 py-1 text-xs bg-background" />
           {(filterType || filterDateFrom || filterDateTo) && (
             <button onClick={() => { setFilterType(""); setFilterDateFrom(""); setFilterDateTo(""); }}
-              className="text-xs text-destructive cursor-pointer bg-transparent border-none underline">
-              Tühjenda
-            </button>
+              className="text-xs text-destructive cursor-pointer bg-transparent border-none underline">Tühjenda</button>
           )}
         </div>
       </div>
@@ -164,16 +157,14 @@ export default function ArchiveView({
         return (
           <div key={gid} className="border border-primary/30 rounded-sm p-3 mb-3 bg-primary/5">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-bold">
-                📅 {group?.name || "Periood"}: {group?.start_date} – {group?.end_date}
-              </div>
+              <div className="text-sm font-bold">📅 {group?.name || "Periood"}: {group?.start_date} – {group?.end_date}</div>
               <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(gid, v)} label="Perioodi nähtavus" />
             </div>
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-1 pr-2">Kuupäev</th>
-                  <th className="text-left py-1 pr-2">Nimetus</th>
+                  <th className="text-left py-1 pr-2">Spordiala</th>
                   <th className="text-left py-1 pr-2">Kestus</th>
                   <th className="text-left py-1 pr-2">Märkus</th>
                   <th className="text-left py-1 pr-2">Lisatud</th>
@@ -191,7 +182,11 @@ export default function ArchiveView({
                       {effortLabel(t) && <span className="text-xs text-muted-foreground ml-1">({effortLabel(t)})</span>}
                     </td>
                     <td className="py-1 pr-2 text-[11px] text-muted-foreground">{formatDateTime(t.created_at)}</td>
-                    <td className="py-1">
+                    <td className="py-1 flex gap-1">
+                      <button onClick={() => setEditTraining(t)}
+                        className="text-xs cursor-pointer border border-border rounded-sm px-1.5 py-0.5 bg-background text-muted-foreground hover:text-foreground">
+                        <Pencil className="h-3 w-3" />
+                      </button>
                       <button onClick={() => setDeleteId(t.id)}
                         className="text-destructive text-xs cursor-pointer border border-destructive rounded-sm px-2 py-0.5 bg-background hover:bg-destructive hover:text-destructive-foreground">
                         Kustuta
@@ -214,6 +209,10 @@ export default function ArchiveView({
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold">{t.name}</span>
               <div className="flex items-center gap-2">
+                <button onClick={() => setEditTraining(t)}
+                  className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                  <Pencil className="h-3 w-3" />
+                </button>
                 <VisibilityDropdown current={t.visibility} onChange={(v) => updateTrainingVisibility(t.id, v)} />
                 <button onClick={() => setDeleteId(t.id)}
                   className="text-destructive text-xs cursor-pointer border border-destructive rounded-sm px-2 py-0.5 bg-background hover:bg-destructive hover:text-destructive-foreground">
@@ -227,6 +226,11 @@ export default function ArchiveView({
             <div className="text-muted-foreground text-[11px] mt-1">Lisatud: {formatDateTime(t.created_at)}</div>
           </div>
         ))
+      )}
+
+      {editTraining && (
+        <EditTrainingDialog training={editTraining} open={!!editTraining}
+          onClose={() => setEditTraining(null)} onSave={handleSaveEdit} />
       )}
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
