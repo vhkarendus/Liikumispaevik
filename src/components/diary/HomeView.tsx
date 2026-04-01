@@ -9,7 +9,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { SPORT_TYPES } from "@/constants/sports";
+
 import InfoTooltip from "./InfoTooltip";
 import EditTrainingDialog from "./EditTrainingDialog";
 import PdfExportButton from "./PdfExport";
