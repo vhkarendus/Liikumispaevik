@@ -141,7 +141,7 @@ function SingleAddForm({ onAdd }: { onAdd: (t: NewTraining) => void }) {
         className="bg-primary text-primary-foreground px-4 py-1.5 rounded-sm text-sm cursor-pointer">
         Salvesta
       </button>
-      {msg && <p className="text-[13px] mt-2 text-green-600">{msg}</p>}
+      {msg && <p className="text-[13px] mt-2 text-primary">{msg}</p>}
     </div>
   );
 }
