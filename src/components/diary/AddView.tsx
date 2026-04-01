@@ -295,7 +295,7 @@ function PeriodAddForm({ onAddPeriod }: {
           </button>
         </div>
       )}
-      {msg && <p className="text-[13px] mt-2 text-green-600">{msg}</p>}
+      {msg && <p className="text-[13px] mt-2 text-primary">{msg}</p>}
     </div>
   );
 }
