@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -9,6 +9,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { et } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 import InfoTooltip from "./InfoTooltip";
 import EditTrainingDialog from "./EditTrainingDialog";
@@ -45,6 +50,61 @@ function VisibilityDropdown({ current, onChange }: { current: string; onChange: 
   );
 }
 
+function DateRangeFilter({ dateFrom, dateTo, onApply }: {
+  dateFrom: string; dateTo: string;
+  onApply: (from: string, to: string) => void;
+}) {
+  const [fromDate, setFromDate] = useState<Date | undefined>(dateFrom ? new Date(dateFrom) : undefined);
+  const [toDate, setToDate] = useState<Date | undefined>(dateTo ? new Date(dateTo) : undefined);
+  const [open, setOpen] = useState(false);
+
+  const handleDone = () => {
+    onApply(
+      fromDate ? fromDate.toISOString().slice(0, 10) : "",
+      toDate ? toDate.toISOString().slice(0, 10) : "",
+    );
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="flex items-center gap-1 border border-border rounded-sm px-2 py-1 text-xs bg-background cursor-pointer hover:bg-accent">
+          <CalendarIcon className="h-3 w-3" />
+          {fromDate || toDate
+            ? `${fromDate ? format(fromDate, "dd.MM.yyyy") : "..."} – ${toDate ? format(toDate, "dd.MM.yyyy") : "..."}`
+            : "Kuupäeva filter"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start">
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs font-medium mb-1">Alguskuupäev</p>
+            <Calendar mode="single" selected={fromDate} onSelect={setFromDate}
+              className={cn("p-2 pointer-events-auto")} locale={et} />
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-1">Lõppkuupäev</p>
+            <Calendar mode="single" selected={toDate} onSelect={setToDate}
+              disabled={(date) => fromDate ? date < fromDate : false}
+              className={cn("p-2 pointer-events-auto")} locale={et} />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleDone}
+              className="bg-primary text-primary-foreground px-3 py-1 rounded-sm text-xs cursor-pointer">
+              Valmis
+            </button>
+            <button onClick={() => { setFromDate(undefined); setToDate(undefined); onApply("", ""); setOpen(false); }}
+              className="text-xs text-destructive cursor-pointer bg-transparent border-none underline">
+              Tühjenda
+            </button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function HomeView({
   trainings, groups, friendCode, onUpdateTrainings, onDeleteGroup,
 }: {
@@ -67,12 +127,10 @@ export default function HomeView({
     return Array.from(types).sort();
   }, [trainings]);
 
-  // Build unified timeline
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [];
     const grouped = new Map<string, Training[]>();
     const ungroupedList: Training[] = [];
-
     const visibleTrainings = trainings.filter((t) => t.visibility !== "hidden");
 
     for (const t of visibleTrainings) {
@@ -84,27 +142,20 @@ export default function HomeView({
       }
     }
 
-    // Add periods as single items
     for (const [gid, periodTrainings] of grouped) {
       const group = groups.find((g) => g.id === gid);
       if (!group) { ungroupedList.push(...periodTrainings); continue; }
-
-      // Apply sport filter to period (match if any training in period matches)
       if (filterType && !periodTrainings.some((t) => t.name === filterType)) continue;
       if (filterDateFrom && group.end_date < filterDateFrom) continue;
       if (filterDateTo && group.start_date > filterDateTo) continue;
-
       const totalDuration = periodTrainings.reduce((s, t) => s + t.duration, 0);
       items.push({
-        type: "period",
-        group,
+        type: "period", group,
         trainings: periodTrainings.sort((a, b) => a.date.localeCompare(b.date)),
-        sortDate: group.start_date,
-        sortDuration: totalDuration,
+        sortDate: group.start_date, sortDuration: totalDuration,
       });
     }
 
-    // Add ungrouped singles
     for (const t of ungroupedList) {
       if (filterType && t.name !== filterType) continue;
       if (filterDateFrom && t.date < filterDateFrom) continue;
@@ -112,7 +163,6 @@ export default function HomeView({
       items.push({ type: "single", training: t, sortDate: t.date, sortDuration: t.duration });
     }
 
-    // Sort
     switch (sortBy) {
       case "newest": items.sort((a, b) => b.sortDate.localeCompare(a.sortDate)); break;
       case "oldest": items.sort((a, b) => a.sortDate.localeCompare(b.sortDate)); break;
@@ -187,11 +237,9 @@ export default function HomeView({
             {[5, 10, 20, 50].map((n) => <option key={n} value={n}>{n} kirjet</option>)}
           </select>
         </div>
-        <div className="flex gap-2">
-          <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background" />
-          <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background" />
+        <div className="flex gap-2 items-center">
+          <DateRangeFilter dateFrom={filterDateFrom} dateTo={filterDateTo}
+            onApply={(from, to) => { setFilterDateFrom(from); setFilterDateTo(to); }} />
           {(filterType || filterDateFrom || filterDateTo) && (
             <button onClick={() => { setFilterType(""); setFilterDateFrom(""); setFilterDateTo(""); }}
               className="text-xs text-destructive cursor-pointer bg-transparent border-none underline">Tühjenda</button>

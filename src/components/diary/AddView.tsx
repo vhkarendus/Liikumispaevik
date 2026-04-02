@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Training } from "@/types/training";
 import { SPORT_TYPES } from "@/constants/sports";
 import InfoTooltip from "./InfoTooltip";
+import { toast } from "sonner";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -38,11 +39,32 @@ function SportSelect({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
+function validateEffort(type: string, value: string): string | null {
+  if (!type) return null;
+  if (!value) return "Sisesta väärtus";
+  const num = parseInt(value);
+  if (type === "effort") {
+    if (isNaN(num) || num < 1 || num > 10) return "Pingutus peab olema 1–10";
+  }
+  if (type === "heart_rate") {
+    if (isNaN(num) || num < 30 || num > 250) return "Pulss peab olema 30–250 BPM";
+  }
+  return null;
+}
+
+function validateDuration(value: string): string | null {
+  if (!value) return "Kestus on kohustuslik";
+  const num = parseInt(value);
+  if (isNaN(num) || num <= 10) return "Kestus peab olema üle 10 minuti";
+  return null;
+}
+
 function EffortInput({
-  effortType, setEffortType, effortValue, setEffortValue,
+  effortType, setEffortType, effortValue, setEffortValue, error,
 }: {
   effortType: string; setEffortType: (v: string) => void;
   effortValue: string; setEffortValue: (v: string) => void;
+  error?: string | null;
 }) {
   return (
     <div className="mb-2">
@@ -70,13 +92,14 @@ function EffortInput({
       {effortType === "effort" && (
         <input type="number" min={1} max={10} value={effortValue}
           onChange={(e) => setEffortValue(e.target.value)} placeholder="1–10"
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+          className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${error ? "border-destructive" : "border-border"}`} />
       )}
       {effortType === "heart_rate" && (
         <input type="number" min={30} max={250} value={effortValue}
           onChange={(e) => setEffortValue(e.target.value)} placeholder="Keskmine pulss (BPM)"
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+          className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${error ? "border-destructive" : "border-border"}`} />
       )}
+      {error && <p className="text-xs text-destructive mt-0.5">{error}</p>}
     </div>
   );
 }
@@ -89,42 +112,57 @@ function SingleAddForm({ onAdd }: { onAdd: (t: NewTraining) => void }) {
   const [visibility, setVisibility] = useState("friends");
   const [effortType, setEffortType] = useState("");
   const [effortValue, setEffortValue] = useState("");
-  const [msg, setMsg] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleSave = () => {
-    if (!name || !date || !duration) return;
+    const newErrors: Record<string, string> = {};
+    if (!name) newErrors.name = "Spordiala on kohustuslik";
+    if (!date) newErrors.date = "Kuupäev on kohustuslik";
+    const durErr = validateDuration(duration);
+    if (durErr) newErrors.duration = durErr;
+    const effErr = validateEffort(effortType, effortValue);
+    if (effErr) newErrors.effort = effErr;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+
     onAdd({
       name, date, duration: parseInt(duration), note: note || null, visibility, group_id: null,
       effort_type: effortType || null,
       effort_value: effortValue ? parseInt(effortValue) : null,
     });
     setName(""); setDate(""); setDuration(""); setNote(""); setEffortType(""); setEffortValue("");
-    setMsg("Treening lisatud!");
-    setTimeout(() => setMsg(""), 2000);
+    toast.success("Trenn lisatud!");
   };
 
   return (
     <div>
       <div className="mb-2">
-        <label className="block text-[13px] mb-0.5">Spordiala</label>
+        <label className="block text-[13px] mb-0.5">Spordiala *</label>
         <SportSelect value={name} onChange={setName} />
+        {errors.name && <p className="text-xs text-destructive mt-0.5">{errors.name}</p>}
       </div>
       <div className="mb-2">
-        <label className="block text-[13px] mb-0.5">Kuupäev</label>
+        <label className="block text-[13px] mb-0.5">Kuupäev *</label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} max={todayStr()}
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+          className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.date ? "border-destructive" : "border-border"}`} />
+        {errors.date && <p className="text-xs text-destructive mt-0.5">{errors.date}</p>}
       </div>
       <div className="mb-2">
-        <label className="block text-[13px] mb-0.5">Kestus (minutites)</label>
+        <label className="block text-[13px] mb-0.5">Kestus (minutites) *</label>
         <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)}
-          className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+          className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.duration ? "border-destructive" : "border-border"}`} />
+        {errors.duration && <p className="text-xs text-destructive mt-0.5">{errors.duration}</p>}
       </div>
       <div className="mb-2">
         <label className="block text-[13px] mb-0.5">Märkus</label>
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
           className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
       </div>
-      <EffortInput effortType={effortType} setEffortType={setEffortType} effortValue={effortValue} setEffortValue={setEffortValue} />
+      <EffortInput effortType={effortType} setEffortType={setEffortType} effortValue={effortValue} setEffortValue={setEffortValue} error={errors.effort} />
       <div className="mb-3">
         <label className="block text-[13px] mb-0.5 flex items-center">
           Nähtavus
@@ -141,7 +179,6 @@ function SingleAddForm({ onAdd }: { onAdd: (t: NewTraining) => void }) {
         className="bg-primary text-primary-foreground px-4 py-1.5 rounded-sm text-sm cursor-pointer">
         Salvesta
       </button>
-      {msg && <p className="text-[13px] mt-2 text-primary">{msg}</p>}
     </div>
   );
 }
@@ -154,7 +191,6 @@ function PeriodAddForm({ onAddPeriod }: {
   const [endDate, setEndDate] = useState("");
   const [visibility, setVisibility] = useState("friends");
   const [days, setDays] = useState<{ date: string; name: string; duration: string; note: string; enabled: boolean; effortType: string; effortValue: string }[]>([]);
-  const [msg, setMsg] = useState("");
 
   const generateDays = () => {
     if (!startDate || !endDate || startDate > endDate) return;
@@ -174,19 +210,32 @@ function PeriodAddForm({ onAddPeriod }: {
   const weekday = (dateStr: string) => new Date(dateStr).toLocaleDateString("et-EE", { weekday: "short" });
 
   const handleSave = () => {
-    const entries = days
-      .filter((d) => d.enabled && d.name && d.duration)
-      .map((d) => ({
-        name: d.name, date: d.date, duration: parseInt(d.duration),
-        note: d.note || null, visibility, group_id: null,
-        effort_type: d.effortType || null,
-        effort_value: d.effortValue ? parseInt(d.effortValue) : null,
-      }));
+    const enabledDays = days.filter((d) => d.enabled && d.name && d.duration);
+
+    // Validate each enabled day
+    for (const d of enabledDays) {
+      const durErr = validateDuration(d.duration);
+      if (durErr) {
+        toast.error(`${d.date}: ${durErr}`);
+        return;
+      }
+      const effErr = validateEffort(d.effortType, d.effortValue);
+      if (effErr) {
+        toast.error(`${d.date}: ${effErr}`);
+        return;
+      }
+    }
+
+    const entries = enabledDays.map((d) => ({
+      name: d.name, date: d.date, duration: parseInt(d.duration),
+      note: d.note || null, visibility, group_id: null,
+      effort_type: d.effortType || null,
+      effort_value: d.effortValue ? parseInt(d.effortValue) : null,
+    }));
     if (entries.length === 0) return;
     onAddPeriod({ name: groupName || "Periood", start_date: startDate, end_date: endDate }, entries);
     setDays([]); setStartDate(""); setEndDate(""); setGroupName("");
-    setMsg(`${entries.length} treeningut lisatud!`);
-    setTimeout(() => setMsg(""), 3000);
+    toast.success(`${entries.length} treeningut lisatud!`);
   };
 
   return (
@@ -295,7 +344,6 @@ function PeriodAddForm({ onAddPeriod }: {
           </button>
         </div>
       )}
-      {msg && <p className="text-[13px] mt-2 text-primary">{msg}</p>}
     </div>
   );
 }
