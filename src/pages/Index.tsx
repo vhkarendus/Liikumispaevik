@@ -117,7 +117,7 @@ export default function Index() {
 
       {view === "home" && <HomeView trainings={trainings} groups={groups} friendCode={friendCode} onUpdateTrainings={setTrainings} onDeleteGroup={(gid) => setGroups(prev => prev.filter(g => g.id !== gid))} />}
       {view === "add" && <AddView onAdd={addTraining} onAddPeriod={addPeriod} />}
-      {view === "archive" && <ArchiveView trainings={trainings} groups={groups} onDelete={deleteTraining} onUpdateTrainings={setTrainings} />}
+      {view === "archive" && <ArchiveView trainings={trainings} groups={groups} onDelete={deleteTraining} onUpdateTrainings={setTrainings} onDeleteGroup={(gid) => setGroups(prev => prev.filter(g => g.id !== gid))} />}
       {view === "friends" && <FriendsView />}
 
       <BottomNav

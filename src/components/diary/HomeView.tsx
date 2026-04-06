@@ -101,13 +101,12 @@ function DateRangeFilter({ dateFrom, dateTo, onApply }: {
 }
 
 export default function HomeView({
-  trainings, groups, friendCode, onUpdateTrainings, onDeleteGroup,
+  trainings, groups, friendCode, onUpdateTrainings,
 }: {
   trainings: Training[];
   groups: TrainingGroup[];
   friendCode: string | null;
   onUpdateTrainings: (updated: Training[]) => void;
-  onDeleteGroup: (groupId: string) => void;
 }) {
   const [displayCount, setDisplayCount] = useState(5);
   const [sortBy, setSortBy] = useState<SortOption>("newest");
