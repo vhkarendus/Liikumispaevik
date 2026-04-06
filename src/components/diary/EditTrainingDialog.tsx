@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -22,13 +23,10 @@ export default function EditTrainingDialog({
   onClose: () => void;
   onSave: (updated: Training) => void;
 }) {
-  const [name, setName] = useState(training.name);
-  const [customName, setCustomName] = useState(
-    SPORT_TYPES.includes(training.name as any) ? "" : training.name
-  );
-  const [isCustom, setIsCustom] = useState(
-    !SPORT_TYPES.includes(training.name as any)
-  );
+  const isSportInList = SPORT_TYPES.includes(training.name as any);
+  const [name, setName] = useState(isSportInList ? training.name : "");
+  const [customName, setCustomName] = useState(isSportInList ? "" : training.name);
+  const [isCustom, setIsCustom] = useState(!isSportInList);
   const [date, setDate] = useState(training.date);
   const [duration, setDuration] = useState(String(training.duration));
   const [note, setNote] = useState(training.note || "");
@@ -38,10 +36,27 @@ export default function EditTrainingDialog({
     training.effort_value ? String(training.effort_value) : ""
   );
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleSave = async () => {
     const finalName = isCustom ? customName : name;
-    if (!finalName || !date || !duration) return;
+    const newErrors: Record<string, string> = {};
+    if (!finalName) newErrors.name = "Spordiala on kohustuslik";
+    if (!date) newErrors.date = "Kuupäev on kohustuslik";
+    if (date > todayStr()) newErrors.date = "Tuleviku kuupäev pole lubatud";
+    const dur = parseInt(duration);
+    if (!duration || isNaN(dur) || dur <= 10) newErrors.duration = "Kestus peab olema üle 10 minuti";
+    if (effortType === "effort") {
+      const v = parseInt(effortValue);
+      if (!effortValue || isNaN(v) || v < 1 || v > 10) newErrors.effort = "Pingutus peab olema 1–10";
+    }
+    if (effortType === "heart_rate") {
+      const v = parseInt(effortValue);
+      if (!effortValue || isNaN(v) || v < 30 || v > 250) newErrors.effort = "Pulss peab olema 30–250 BPM";
+    }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+    setErrors({});
+
     setSaving(true);
     const updates = {
       name: finalName,
@@ -60,6 +75,7 @@ export default function EditTrainingDialog({
     if (!error) {
       onSave({ ...training, ...updates });
       onClose();
+      toast.success("Treening uuendatud!");
     }
   };
 
@@ -71,20 +87,21 @@ export default function EditTrainingDialog({
         </DialogHeader>
         <div className="space-y-3 mt-2">
           <div>
-            <label className="block text-[13px] mb-0.5">Spordiala</label>
+            <label className="block text-[13px] mb-0.5">Spordiala *</label>
             {!isCustom ? (
               <select
                 value={name}
                 onChange={(e) => {
                   if (e.target.value === "__custom__") {
                     setIsCustom(true);
-                    setName("");
+                    setCustomName("");
                   } else {
                     setName(e.target.value);
                   }
                 }}
-                className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background"
+                className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.name ? "border-destructive" : "border-border"}`}
               >
+                <option value="" disabled>Vali spordiala</option>
                 {SPORT_TYPES.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -97,27 +114,30 @@ export default function EditTrainingDialog({
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
                   placeholder="Sisesta spordiala"
-                  className="flex-1 border border-border rounded-sm px-2 py-1 text-sm bg-background"
+                  className={`flex-1 border rounded-sm px-2 py-1 text-sm bg-background ${errors.name ? "border-destructive" : "border-border"}`}
                 />
                 <button
                   type="button"
-                  onClick={() => { setIsCustom(false); setName(SPORT_TYPES[0]); }}
+                  onClick={() => { setIsCustom(false); setName(""); }}
                   className="text-xs text-primary cursor-pointer bg-transparent border-none underline"
                 >
                   Nimekiri
                 </button>
               </div>
             )}
+            {errors.name && <p className="text-xs text-destructive mt-0.5">{errors.name}</p>}
           </div>
           <div>
-            <label className="block text-[13px] mb-0.5">Kuupäev</label>
+            <label className="block text-[13px] mb-0.5">Kuupäev *</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} max={todayStr()}
-              className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+              className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.date ? "border-destructive" : "border-border"}`} />
+            {errors.date && <p className="text-xs text-destructive mt-0.5">{errors.date}</p>}
           </div>
           <div>
-            <label className="block text-[13px] mb-0.5">Kestus (minutites)</label>
+            <label className="block text-[13px] mb-0.5">Kestus (minutites) *</label>
             <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)}
-              className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+              className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.duration ? "border-destructive" : "border-border"}`} />
+            {errors.duration && <p className="text-xs text-destructive mt-0.5">{errors.duration}</p>}
           </div>
           <div>
             <label className="block text-[13px] mb-0.5">Märkus</label>
@@ -146,13 +166,14 @@ export default function EditTrainingDialog({
             {effortType === "effort" && (
               <input type="number" min={1} max={10} value={effortValue}
                 onChange={(e) => setEffortValue(e.target.value)} placeholder="1–10"
-                className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+                className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.effort ? "border-destructive" : "border-border"}`} />
             )}
             {effortType === "heart_rate" && (
               <input type="number" min={30} max={250} value={effortValue}
                 onChange={(e) => setEffortValue(e.target.value)} placeholder="Keskmine pulss (BPM)"
-                className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background" />
+                className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.effort ? "border-destructive" : "border-border"}`} />
             )}
+            {errors.effort && <p className="text-xs text-destructive mt-0.5">{errors.effort}</p>}
           </div>
           <div>
             <label className="block text-[13px] mb-0.5">Nähtavus</label>

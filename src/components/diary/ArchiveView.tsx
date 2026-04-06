@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff, Pencil, CalendarIcon } from "lucide-react";
+import { Eye, EyeOff, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -216,14 +216,16 @@ function PdfExportDialog({ trainings, groups, open, onClose }: {
 }
 
 export default function ArchiveView({
-  trainings, groups, onDelete, onUpdateTrainings,
+  trainings, groups, onDelete, onUpdateTrainings, onDeleteGroup,
 }: {
   trainings: Training[];
   groups: TrainingGroup[];
   onDelete: (id: string) => void;
   onUpdateTrainings: (updated: Training[]) => void;
+  onDeleteGroup: (groupId: string) => void;
 }) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [filterType, setFilterType] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
@@ -231,13 +233,21 @@ export default function ArchiveView({
   const [editTraining, setEditTraining] = useState<Training | null>(null);
   const [displayCount, setDisplayCount] = useState(10);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
 
   const trainingTypes = useMemo(() => {
     const types = new Set(trainings.map((t) => t.name));
     return Array.from(types).sort();
   }, [trainings]);
 
-  // Build unified timeline (periods + singles together)
+  const togglePeriod = (gid: string) => {
+    setExpandedPeriods(prev => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid); else next.add(gid);
+      return next;
+    });
+  };
+
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [];
     const grouped = new Map<string, Training[]>();
@@ -286,6 +296,16 @@ export default function ArchiveView({
 
   const confirmDelete = () => {
     if (deleteId) { onDelete(deleteId); setDeleteId(null); }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!deleteGroupId) return;
+    const ids = trainings.filter((t) => t.group_id === deleteGroupId).map((t) => t.id);
+    await supabase.from("trainings").delete().in("id", ids);
+    await supabase.from("training_groups").delete().eq("id", deleteGroupId);
+    onUpdateTrainings(trainings.filter((t) => t.group_id !== deleteGroupId));
+    onDeleteGroup(deleteGroupId);
+    setDeleteGroupId(null);
   };
 
   const updateTrainingVisibility = async (id: string, visibility: string) => {
@@ -354,47 +374,62 @@ export default function ArchiveView({
           if (item.type === "period") {
             const periodVis = item.trainings[0]?.visibility || "friends";
             const totalMin = item.trainings.reduce((s, t) => s + t.duration, 0);
+            const isExpanded = expandedPeriods.has(item.group.id);
             return (
               <div key={item.group.id} className="border border-primary/30 rounded-sm p-3 mb-3 bg-primary/5">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-bold">📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}</div>
-                  <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} label="Perioodi nähtavus" />
+                <div className="flex items-center justify-between mb-1">
+                  <button
+                    onClick={() => togglePeriod(item.group.id)}
+                    className="flex items-center gap-1 text-sm font-bold bg-transparent border-none cursor-pointer text-foreground p-0"
+                  >
+                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} label="Nähtavus" />
+                    <button onClick={() => setDeleteGroupId(item.group.id)}
+                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-destructive rounded-sm px-1.5 py-0.5 text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
                 <div className="text-xs text-muted-foreground mb-1">{item.trainings.length} treeningut · {totalMin} min kokku</div>
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-1 pr-2 text-xs">Kuupäev</th>
-                      <th className="text-left py-1 pr-2 text-xs">Spordiala</th>
-                      <th className="text-left py-1 pr-2 text-xs">Kestus</th>
-                      <th className="text-left py-1 pr-2 text-xs">Märkus</th>
-                      <th className="text-left py-1 text-xs"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {item.trainings.map((t) => (
-                      <tr key={t.id} className="border-b border-border">
-                        <td className="py-1 pr-2 text-xs">{t.date}</td>
-                        <td className="py-1 pr-2 text-xs">{t.name}</td>
-                        <td className="py-1 pr-2 text-xs">{t.duration} min</td>
-                        <td className="py-1 pr-2 text-xs">
-                          {t.note}
-                          {effortLabel(t) && <span className="text-muted-foreground ml-1">({effortLabel(t)})</span>}
-                        </td>
-                        <td className="py-1 flex gap-1">
-                          <button onClick={() => setEditTraining(t)}
-                            className="text-xs cursor-pointer border border-border rounded-sm px-1.5 py-0.5 bg-background text-muted-foreground hover:text-foreground">
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <button onClick={() => setDeleteId(t.id)}
-                            className="text-destructive text-xs cursor-pointer border border-destructive rounded-sm px-2 py-0.5 bg-background hover:bg-destructive hover:text-destructive-foreground">
-                            Kustuta
-                          </button>
-                        </td>
+                {isExpanded && (
+                  <table className="w-full text-sm border-collapse mt-2">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-1 pr-2 text-xs">Kuupäev</th>
+                        <th className="text-left py-1 pr-2 text-xs">Spordiala</th>
+                        <th className="text-left py-1 pr-2 text-xs">Kestus</th>
+                        <th className="text-left py-1 pr-2 text-xs">Märkus</th>
+                        <th className="text-left py-1 text-xs"></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {item.trainings.map((t) => (
+                        <tr key={t.id} className="border-b border-border">
+                          <td className="py-1 pr-2 text-xs">{t.date}</td>
+                          <td className="py-1 pr-2 text-xs">{t.name}</td>
+                          <td className="py-1 pr-2 text-xs">{t.duration} min</td>
+                          <td className="py-1 pr-2 text-xs">
+                            {t.note}
+                            {effortLabel(t) && <span className="text-muted-foreground ml-1">({effortLabel(t)})</span>}
+                          </td>
+                          <td className="py-1 flex gap-1">
+                            <button onClick={() => setEditTraining(t)}
+                              className="text-xs cursor-pointer border border-border rounded-sm px-1.5 py-0.5 bg-background text-muted-foreground hover:text-foreground">
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button onClick={() => setDeleteId(t.id)}
+                              className="text-destructive text-xs cursor-pointer border border-destructive rounded-sm px-2 py-0.5 bg-background hover:bg-destructive hover:text-destructive-foreground">
+                              Kustuta
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             );
           } else {
@@ -447,6 +482,19 @@ export default function ArchiveView({
           <AlertDialogFooter>
             <AlertDialogCancel>Tühista</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>Jah, kustuta</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteGroupId} onOpenChange={(o) => !o && setDeleteGroupId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kustuta kogu periood?</AlertDialogTitle>
+            <AlertDialogDescription>Kõik perioodi treeningud kustutatakse. Seda ei saa tagasi võtta.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tühista</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteGroup}>Jah, kustuta</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
