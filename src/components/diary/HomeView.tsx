@@ -1,14 +1,10 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff, Pencil, Trash2, CalendarIcon } from "lucide-react";
+import { Eye, EyeOff, CalendarIcon, ChevronDown, ChevronRight } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -16,7 +12,6 @@ import { et } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 import InfoTooltip from "./InfoTooltip";
-import EditTrainingDialog from "./EditTrainingDialog";
 import PdfExportButton from "./PdfExport";
 
 const formatDateTime = (iso: string) => {
@@ -119,13 +114,20 @@ export default function HomeView({
   const [filterType, setFilterType] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
-  const [editTraining, setEditTraining] = useState<Training | null>(null);
-  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
+  const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
 
   const trainingTypes = useMemo(() => {
     const types = new Set(trainings.map((t) => t.name));
     return Array.from(types).sort();
   }, [trainings]);
+
+  const togglePeriod = (gid: string) => {
+    setExpandedPeriods(prev => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid); else next.add(gid);
+      return next;
+    });
+  };
 
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [];
@@ -182,20 +184,6 @@ export default function HomeView({
     const ids = trainings.filter((t) => t.group_id === groupId).map((t) => t.id);
     await supabase.from("trainings").update({ visibility }).in("id", ids);
     onUpdateTrainings(trainings.map((t) => t.group_id === groupId ? { ...t, visibility } : t));
-  };
-
-  const handleDeleteGroup = async () => {
-    if (!deleteGroupId) return;
-    const ids = trainings.filter((t) => t.group_id === deleteGroupId).map((t) => t.id);
-    await supabase.from("trainings").delete().in("id", ids);
-    await supabase.from("training_groups").delete().eq("id", deleteGroupId);
-    onUpdateTrainings(trainings.filter((t) => t.group_id !== deleteGroupId));
-    onDeleteGroup(deleteGroupId);
-    setDeleteGroupId(null);
-  };
-
-  const handleSaveEdit = (updated: Training) => {
-    onUpdateTrainings(trainings.map((t) => t.id === updated.id ? updated : t));
   };
 
   return (
@@ -256,20 +244,21 @@ export default function HomeView({
           if (item.type === "period") {
             const periodVis = item.trainings[0]?.visibility || "friends";
             const totalMin = item.trainings.reduce((s, t) => s + t.duration, 0);
+            const isExpanded = expandedPeriods.has(item.group.id);
             return (
               <div key={item.group.id} className="border border-primary/30 rounded-sm p-3 mb-3 bg-primary/5">
                 <div className="flex items-center justify-between mb-1">
-                  <div className="text-sm font-bold">📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}</div>
-                  <div className="flex items-center gap-1">
-                    <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} />
-                    <button onClick={() => setDeleteGroupId(item.group.id)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-destructive rounded-sm px-1.5 py-0.5 text-destructive hover:bg-destructive hover:text-destructive-foreground">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => togglePeriod(item.group.id)}
+                    className="flex items-center gap-1 text-sm font-bold bg-transparent border-none cursor-pointer text-foreground p-0"
+                  >
+                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
+                  </button>
+                  <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} />
                 </div>
                 <div className="text-xs text-muted-foreground mb-1">{item.trainings.length} treeningut · {totalMin} min kokku</div>
-                {item.trainings.map((t) => (
+                {isExpanded && item.trainings.map((t) => (
                   <div key={t.id} className="text-[13px] py-0.5 flex items-center justify-between">
                     <span>{t.date} – {t.name} · {t.duration} min{t.note ? ` · ${t.note}` : ""}</span>
                   </div>
@@ -282,13 +271,7 @@ export default function HomeView({
               <div key={t.id} className="border border-border rounded-sm p-3 mb-2 bg-card">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold">{t.name}</span>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setEditTraining(t)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <VisibilityDropdown current={t.visibility} onChange={(v) => updateVisibility(t.id, v)} />
-                  </div>
+                  <VisibilityDropdown current={t.visibility} onChange={(v) => updateVisibility(t.id, v)} />
                 </div>
                 <div className="text-muted-foreground text-[13px]">{t.date} · {t.duration} min</div>
                 {t.note && <div className="text-[13px] mt-0.5">{t.note}</div>}
@@ -303,24 +286,6 @@ export default function HomeView({
           }
         })
       )}
-
-      {editTraining && (
-        <EditTrainingDialog training={editTraining} open={!!editTraining}
-          onClose={() => setEditTraining(null)} onSave={handleSaveEdit} />
-      )}
-
-      <AlertDialog open={!!deleteGroupId} onOpenChange={(o) => !o && setDeleteGroupId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Kustuta kogu periood?</AlertDialogTitle>
-            <AlertDialogDescription>Kõik perioodi treeningud kustutatakse. Seda ei saa tagasi võtta.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Tühista</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteGroup}>Jah, kustuta</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
