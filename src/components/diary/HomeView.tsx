@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff, CalendarIcon, ChevronDown, ChevronRight } from "lucide-react";
+import { Eye, EyeOff, CalendarIcon, ChevronDown, ChevronRight, Pencil, History } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -10,9 +10,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { et } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { FileDown } from "lucide-react";
 
 import InfoTooltip from "./InfoTooltip";
-import PdfExportButton from "./PdfExport";
+import PdfExportDialog from "./PdfExportDialog";
+import EditTrainingDialog from "./EditTrainingDialog";
+import EditPeriodDialog from "./EditPeriodDialog";
+import TrainingHistoryDialog from "./TrainingHistoryDialog";
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -101,12 +105,13 @@ function DateRangeFilter({ dateFrom, dateTo, onApply }: {
 }
 
 export default function HomeView({
-  trainings, groups, friendCode, onUpdateTrainings,
+  trainings, groups, friendCode, onUpdateTrainings, onUpdateGroups,
 }: {
   trainings: Training[];
   groups: TrainingGroup[];
   friendCode: string | null;
   onUpdateTrainings: (updated: Training[]) => void;
+  onUpdateGroups?: (updated: TrainingGroup[]) => void;
 }) {
   const [displayCount, setDisplayCount] = useState(5);
   const [sortBy, setSortBy] = useState<SortOption>("newest");
@@ -114,6 +119,10 @@ export default function HomeView({
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [editTraining, setEditTraining] = useState<Training | null>(null);
+  const [editPeriod, setEditPeriod] = useState<TrainingGroup | null>(null);
+  const [historyTraining, setHistoryTraining] = useState<Training | null>(null);
 
   const trainingTypes = useMemo(() => {
     const types = new Set(trainings.map((t) => t.name));
@@ -185,11 +194,30 @@ export default function HomeView({
     onUpdateTrainings(trainings.map((t) => t.group_id === groupId ? { ...t, visibility } : t));
   };
 
+  const handleSaveEdit = (updated: Training) => {
+    onUpdateTrainings(trainings.map((t) => t.id === updated.id ? updated : t));
+  };
+
+  const handleSavePeriod = (updated: TrainingGroup) => {
+    onUpdateGroups?.(groups.map((g) => g.id === updated.id ? updated : g));
+  };
+
+  const resetFilters = () => {
+    setFilterType("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setSortBy("newest");
+    setDisplayCount(5);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-semibold">Liikumispäevik</h1>
-        <PdfExportButton trainings={trainings.filter(t => t.visibility !== "hidden")} groups={groups} />
+        <button onClick={() => setPdfDialogOpen(true)}
+          className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-2 py-1 text-muted-foreground hover:text-foreground">
+          <FileDown className="h-3 w-3" /> PDF
+        </button>
       </div>
       <p className="text-muted-foreground text-sm mb-2">Siia saad oma treeningud kirja panna.</p>
 
@@ -227,8 +255,8 @@ export default function HomeView({
         <div className="flex gap-2 items-center">
           <DateRangeFilter dateFrom={filterDateFrom} dateTo={filterDateTo}
             onApply={(from, to) => { setFilterDateFrom(from); setFilterDateTo(to); }} />
-          {(filterType || filterDateFrom || filterDateTo) && (
-            <button onClick={() => { setFilterType(""); setFilterDateFrom(""); setFilterDateTo(""); }}
+          {(filterType || filterDateFrom || filterDateTo || sortBy !== "newest" || displayCount !== 5) && (
+            <button onClick={resetFilters}
               className="text-xs text-destructive cursor-pointer bg-transparent border-none underline">Tühjenda</button>
           )}
         </div>
@@ -254,12 +282,28 @@ export default function HomeView({
                     {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
                   </button>
-                  <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} />
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setEditPeriod(item.group)}
+                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} />
+                  </div>
                 </div>
                 <div className="text-xs text-muted-foreground mb-1">{item.trainings.length} treeningut · {totalMin} min kokku</div>
                 {isExpanded && item.trainings.map((t) => (
-                  <div key={t.id} className="text-[13px] py-0.5 flex items-center justify-between">
+                  <div key={t.id} className="text-[13px] py-1 flex items-center justify-between border-t border-border/50">
                     <span>{t.date} – {t.name} · {t.duration} min{t.note ? ` · ${t.note}` : ""}</span>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setHistoryTraining(t)}
+                        className="text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1 py-0.5 text-muted-foreground hover:text-foreground">
+                        <History className="h-3 w-3" />
+                      </button>
+                      <button onClick={() => setEditTraining(t)}
+                        className="text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1 py-0.5 text-muted-foreground hover:text-foreground">
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -270,7 +314,17 @@ export default function HomeView({
               <div key={t.id} className="border border-border rounded-sm p-3 mb-2 bg-card">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold">{t.name}</span>
-                  <VisibilityDropdown current={t.visibility} onChange={(v) => updateVisibility(t.id, v)} />
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setHistoryTraining(t)}
+                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                      <History className="h-3 w-3" />
+                    </button>
+                    <button onClick={() => setEditTraining(t)}
+                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <VisibilityDropdown current={t.visibility} onChange={(v) => updateVisibility(t.id, v)} />
+                  </div>
                 </div>
                 <div className="text-muted-foreground text-[13px]">{t.date} · {t.duration} min</div>
                 {t.note && <div className="text-[13px] mt-0.5">{t.note}</div>}
@@ -285,6 +339,21 @@ export default function HomeView({
           }
         })
       )}
+
+      {editTraining && (
+        <EditTrainingDialog training={editTraining} open={!!editTraining}
+          onClose={() => setEditTraining(null)} onSave={handleSaveEdit} />
+      )}
+      {editPeriod && (
+        <EditPeriodDialog group={editPeriod} open={!!editPeriod}
+          onClose={() => setEditPeriod(null)} onSave={handleSavePeriod} />
+      )}
+      {historyTraining && (
+        <TrainingHistoryDialog training={historyTraining} open={!!historyTraining}
+          onClose={() => setHistoryTraining(null)} onRestore={handleSaveEdit} />
+      )}
+      <PdfExportDialog trainings={trainings.filter(t => t.visibility !== "hidden")} groups={groups}
+        open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} />
     </div>
   );
 }
