@@ -78,6 +78,7 @@ function validateDuration(value: string): string | null {
   if (!value) return "Kestus on kohustuslik";
   const num = parseInt(value);
   if (isNaN(num) || num <= 10) return "Kestus peab olema üle 10 minuti";
+  if (num > 240) return "Kestus ei saa ületada 240 minutit";
   return null;
 }
 

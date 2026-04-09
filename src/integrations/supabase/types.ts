@@ -95,6 +95,48 @@ export type Database = {
         }
         Relationships: []
       }
+      training_history: {
+        Row: {
+          changed_at: string
+          date: string
+          duration: number
+          effort_type: string | null
+          effort_value: number | null
+          id: string
+          name: string
+          note: string | null
+          training_id: string
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          changed_at?: string
+          date: string
+          duration: number
+          effort_type?: string | null
+          effort_value?: number | null
+          id?: string
+          name: string
+          note?: string | null
+          training_id: string
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          changed_at?: string
+          date?: string
+          duration?: number
+          effort_type?: string | null
+          effort_value?: number | null
+          id?: string
+          name?: string
+          note?: string | null
+          training_id?: string
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
       trainings: {
         Row: {
           created_at: string

@@ -3,20 +3,14 @@ import { Training } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
 import { SPORT_TYPES } from "@/constants/sports";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function EditTrainingDialog({
-  training,
-  open,
-  onClose,
-  onSave,
+  training, open, onClose, onSave,
 }: {
   training: Training;
   open: boolean;
@@ -46,6 +40,7 @@ export default function EditTrainingDialog({
     if (date > todayStr()) newErrors.date = "Tuleviku kuupäev pole lubatud";
     const dur = parseInt(duration);
     if (!duration || isNaN(dur) || dur <= 10) newErrors.duration = "Kestus peab olema üle 10 minuti";
+    else if (dur > 240) newErrors.duration = "Kestus ei saa ületada 240 minutit";
     if (effortType === "effort") {
       const v = parseInt(effortValue);
       if (!effortValue || isNaN(v) || v < 1 || v > 10) newErrors.effort = "Pingutus peab olema 1–10";
@@ -58,6 +53,23 @@ export default function EditTrainingDialog({
     setErrors({});
 
     setSaving(true);
+
+    // Save current state to history before updating
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("training_history").insert({
+        training_id: training.id,
+        user_id: user.id,
+        name: training.name,
+        date: training.date,
+        duration: training.duration,
+        note: training.note,
+        visibility: training.visibility,
+        effort_type: training.effort_type,
+        effort_value: training.effort_value,
+      });
+    }
+
     const updates = {
       name: finalName,
       date,
@@ -89,40 +101,23 @@ export default function EditTrainingDialog({
           <div>
             <label className="block text-[13px] mb-0.5">Spordiala *</label>
             {!isCustom ? (
-              <select
-                value={name}
+              <select value={name}
                 onChange={(e) => {
-                  if (e.target.value === "__custom__") {
-                    setIsCustom(true);
-                    setCustomName("");
-                  } else {
-                    setName(e.target.value);
-                  }
+                  if (e.target.value === "__custom__") { setIsCustom(true); setCustomName(""); }
+                  else setName(e.target.value);
                 }}
-                className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.name ? "border-destructive" : "border-border"}`}
-              >
+                className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.name ? "border-destructive" : "border-border"}`}>
                 <option value="" disabled>Vali spordiala</option>
-                {SPORT_TYPES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
+                {SPORT_TYPES.map((s) => <option key={s} value={s}>{s}</option>)}
                 <option value="__custom__">Muu...</option>
               </select>
             ) : (
               <div className="flex gap-1">
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
+                <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)}
                   placeholder="Sisesta spordiala"
-                  className={`flex-1 border rounded-sm px-2 py-1 text-sm bg-background ${errors.name ? "border-destructive" : "border-border"}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => { setIsCustom(false); setName(""); }}
-                  className="text-xs text-primary cursor-pointer bg-transparent border-none underline"
-                >
-                  Nimekiri
-                </button>
+                  className={`flex-1 border rounded-sm px-2 py-1 text-sm bg-background ${errors.name ? "border-destructive" : "border-border"}`} />
+                <button type="button" onClick={() => { setIsCustom(false); setName(""); }}
+                  className="text-xs text-primary cursor-pointer bg-transparent border-none underline">Nimekiri</button>
               </div>
             )}
             {errors.name && <p className="text-xs text-destructive mt-0.5">{errors.name}</p>}
@@ -134,8 +129,8 @@ export default function EditTrainingDialog({
             {errors.date && <p className="text-xs text-destructive mt-0.5">{errors.date}</p>}
           </div>
           <div>
-            <label className="block text-[13px] mb-0.5">Kestus (minutites) *</label>
-            <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)}
+            <label className="block text-[13px] mb-0.5">Kestus (minutites) * <span className="text-muted-foreground font-normal">(max 240)</span></label>
+            <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} min={11} max={240}
               className={`w-full border rounded-sm px-2 py-1 text-sm bg-background ${errors.duration ? "border-destructive" : "border-border"}`} />
             {errors.duration && <p className="text-xs text-destructive mt-0.5">{errors.duration}</p>}
           </div>
