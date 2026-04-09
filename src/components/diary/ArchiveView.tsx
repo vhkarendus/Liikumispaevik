@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight } from "lucide-react";
+import { Eye, EyeOff, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight, History } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -9,14 +9,13 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import InfoTooltip from "./InfoTooltip";
 import EditTrainingDialog from "./EditTrainingDialog";
-import { exportTrainingsPdf } from "./PdfExport";
+import EditPeriodDialog from "./EditPeriodDialog";
+import TrainingHistoryDialog from "./TrainingHistoryDialog";
+import PdfExportDialog from "./PdfExportDialog";
 import { format } from "date-fns";
 import { et } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -33,14 +32,14 @@ type TimelineItem =
   | { type: "single"; training: Training; sortDate: string; sortDuration: number }
   | { type: "period"; group: TrainingGroup; trainings: Training[]; sortDate: string; sortDuration: number };
 
-function VisibilityDropdown({ current, onChange, label }: { current: string; onChange: (v: string) => void; label?: string }) {
+function VisibilityDropdown({ current, onChange }: { current: string; onChange: (v: string) => void }) {
   const visLabel = current === "private" ? "🔒 Privaatne" : current === "hidden" ? "👁️‍🗨️ Peidetud" : "👥 Sõpradele";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
           {current === "friends" ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-          <span>{label || visLabel}</span>
+          <span>{visLabel}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -114,115 +113,15 @@ function DateRangeFilter({ dateFrom, dateTo, onApply }: {
   );
 }
 
-function PdfExportDialog({ trainings, groups, open, onClose }: {
-  trainings: Training[]; groups: TrainingGroup[]; open: boolean; onClose: () => void;
-}) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
-
-  const groupMap = new Map<string, Training[]>();
-  const ungrouped: Training[] = [];
-  for (const t of trainings) {
-    if (t.group_id) {
-      if (!groupMap.has(t.group_id)) groupMap.set(t.group_id, []);
-      groupMap.get(t.group_id)!.push(t);
-    } else {
-      ungrouped.push(t);
-    }
-  }
-
-  const toggleGroup = (gid: string) => {
-    const next = new Set(selectedGroupIds);
-    if (next.has(gid)) next.delete(gid); else next.add(gid);
-    setSelectedGroupIds(next);
-  };
-
-  const toggleSingle = (id: string) => {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setSelectedIds(next);
-  };
-
-  const handleExport = () => {
-    const exportTrainings: Training[] = [];
-    for (const gid of selectedGroupIds) {
-      const items = groupMap.get(gid);
-      if (items) exportTrainings.push(...items);
-    }
-    for (const id of selectedIds) {
-      const t = ungrouped.find((tr) => tr.id === id);
-      if (t) exportTrainings.push(t);
-    }
-    if (exportTrainings.length === 0) return;
-    const exportGroups = groups.filter((g) => selectedGroupIds.has(g.id));
-    exportTrainingsPdf(exportTrainings, exportGroups, "Treeningute eksport");
-    onClose();
-  };
-
-  const selectAll = () => {
-    setSelectedGroupIds(new Set(Array.from(groupMap.keys())));
-    setSelectedIds(new Set(ungrouped.map((t) => t.id)));
-  };
-
-  const selectNone = () => {
-    setSelectedGroupIds(new Set());
-    setSelectedIds(new Set());
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[420px] max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Vali eksporditavad treeningud</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-2 mt-2">
-          <div className="flex gap-2 mb-2">
-            <button onClick={selectAll} className="text-xs text-primary cursor-pointer bg-transparent border-none underline">Vali kõik</button>
-            <button onClick={selectNone} className="text-xs text-muted-foreground cursor-pointer bg-transparent border-none underline">Tühjenda valik</button>
-          </div>
-
-          {Array.from(groupMap.entries()).map(([gid, items]) => {
-            const group = groups.find((g) => g.id === gid);
-            return (
-              <label key={gid} className="flex items-start gap-2 p-2 border border-border rounded-sm cursor-pointer hover:bg-accent/50">
-                <input type="checkbox" checked={selectedGroupIds.has(gid)} onChange={() => toggleGroup(gid)} className="accent-primary mt-0.5" />
-                <div>
-                  <div className="text-sm font-medium">📅 {group?.name || "Periood"}: {group?.start_date} – {group?.end_date}</div>
-                  <div className="text-xs text-muted-foreground">{items.length} treeningut</div>
-                </div>
-              </label>
-            );
-          })}
-
-          {ungrouped.map((t) => (
-            <label key={t.id} className="flex items-start gap-2 p-2 border border-border rounded-sm cursor-pointer hover:bg-accent/50">
-              <input type="checkbox" checked={selectedIds.has(t.id)} onChange={() => toggleSingle(t.id)} className="accent-primary mt-0.5" />
-              <div>
-                <div className="text-sm font-medium">{t.name}</div>
-                <div className="text-xs text-muted-foreground">{t.date} · {t.duration} min</div>
-              </div>
-            </label>
-          ))}
-
-          <button onClick={handleExport}
-            disabled={selectedIds.size === 0 && selectedGroupIds.size === 0}
-            className="bg-primary text-primary-foreground px-4 py-1.5 rounded-sm text-sm cursor-pointer w-full disabled:opacity-50 mt-2">
-            Ekspordi PDF
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function ArchiveView({
-  trainings, groups, onDelete, onUpdateTrainings, onDeleteGroup,
+  trainings, groups, onDelete, onUpdateTrainings, onDeleteGroup, onUpdateGroups,
 }: {
   trainings: Training[];
   groups: TrainingGroup[];
   onDelete: (id: string) => void;
   onUpdateTrainings: (updated: Training[]) => void;
   onDeleteGroup: (groupId: string) => void;
+  onUpdateGroups?: (updated: TrainingGroup[]) => void;
 }) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
@@ -231,6 +130,8 @@ export default function ArchiveView({
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [editTraining, setEditTraining] = useState<Training | null>(null);
+  const [editPeriod, setEditPeriod] = useState<TrainingGroup | null>(null);
+  const [historyTraining, setHistoryTraining] = useState<Training | null>(null);
   const [displayCount, setDisplayCount] = useState(10);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
@@ -266,6 +167,7 @@ export default function ArchiveView({
       const group = groups.find((g) => g.id === gid);
       if (!group) { ungroupedList.push(...periodTrainings); continue; }
       if (filterType && !periodTrainings.some((t) => t.name === filterType)) continue;
+      // Fix same-day filtering: use <= and >= for inclusive range
       if (filterDateFrom && group.end_date < filterDateFrom) continue;
       if (filterDateTo && group.start_date > filterDateTo) continue;
       const totalDuration = periodTrainings.reduce((s, t) => s + t.duration, 0);
@@ -277,6 +179,7 @@ export default function ArchiveView({
 
     for (const t of ungroupedList) {
       if (filterType && t.name !== filterType) continue;
+      // Fix same-day filtering: use <= and >= for inclusive comparison
       if (filterDateFrom && t.date < filterDateFrom) continue;
       if (filterDateTo && t.date > filterDateTo) continue;
       items.push({ type: "single", training: t, sortDate: t.date, sortDuration: t.duration });
@@ -323,6 +226,18 @@ export default function ArchiveView({
     onUpdateTrainings(trainings.map((t) => t.id === updated.id ? updated : t));
   };
 
+  const handleSavePeriod = (updated: TrainingGroup) => {
+    onUpdateGroups?.(groups.map((g) => g.id === updated.id ? updated : g));
+  };
+
+  const resetFilters = () => {
+    setFilterType("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setSortBy("newest");
+    setDisplayCount(10);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
@@ -360,8 +275,8 @@ export default function ArchiveView({
         <div className="flex gap-2 items-center">
           <DateRangeFilter dateFrom={filterDateFrom} dateTo={filterDateTo}
             onApply={(from, to) => { setFilterDateFrom(from); setFilterDateTo(to); }} />
-          {(filterType || filterDateFrom || filterDateTo) && (
-            <button onClick={() => { setFilterType(""); setFilterDateFrom(""); setFilterDateTo(""); }}
+          {(filterType || filterDateFrom || filterDateTo || sortBy !== "newest" || displayCount !== 10) && (
+            <button onClick={resetFilters}
               className="text-xs text-destructive cursor-pointer bg-transparent border-none underline">Tühjenda</button>
           )}
         </div>
@@ -386,7 +301,11 @@ export default function ArchiveView({
                     📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
                   </button>
                   <div className="flex items-center gap-1">
-                    <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} label="Nähtavus" />
+                    <button onClick={() => setEditPeriod(item.group)}
+                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} />
                     <button onClick={() => setDeleteGroupId(item.group.id)}
                       className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-destructive rounded-sm px-1.5 py-0.5 text-destructive hover:bg-destructive hover:text-destructive-foreground">
                       <Trash2 className="h-3 w-3" />
@@ -416,6 +335,10 @@ export default function ArchiveView({
                             {effortLabel(t) && <span className="text-muted-foreground ml-1">({effortLabel(t)})</span>}
                           </td>
                           <td className="py-1 flex gap-1">
+                            <button onClick={() => setHistoryTraining(t)}
+                              className="text-xs cursor-pointer border border-border rounded-sm px-1.5 py-0.5 bg-background text-muted-foreground hover:text-foreground">
+                              <History className="h-3 w-3" />
+                            </button>
                             <button onClick={() => setEditTraining(t)}
                               className="text-xs cursor-pointer border border-border rounded-sm px-1.5 py-0.5 bg-background text-muted-foreground hover:text-foreground">
                               <Pencil className="h-3 w-3" />
@@ -438,7 +361,11 @@ export default function ArchiveView({
               <div key={t.id} className="border border-border rounded-sm p-3 mb-2 bg-card">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold">{t.name}</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setHistoryTraining(t)}
+                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                      <History className="h-3 w-3" />
+                    </button>
                     <button onClick={() => setEditTraining(t)}
                       className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
                       <Pencil className="h-3 w-3" />
@@ -469,6 +396,14 @@ export default function ArchiveView({
       {editTraining && (
         <EditTrainingDialog training={editTraining} open={!!editTraining}
           onClose={() => setEditTraining(null)} onSave={handleSaveEdit} />
+      )}
+      {editPeriod && (
+        <EditPeriodDialog group={editPeriod} open={!!editPeriod}
+          onClose={() => setEditPeriod(null)} onSave={handleSavePeriod} />
+      )}
+      {historyTraining && (
+        <TrainingHistoryDialog training={historyTraining} open={!!historyTraining}
+          onClose={() => setHistoryTraining(null)} onRestore={handleSaveEdit} />
       )}
 
       <PdfExportDialog trainings={trainings} groups={groups} open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} />

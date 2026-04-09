@@ -115,9 +115,9 @@ export default function Index() {
         <span>Sisse logitud: <strong>{displayName}</strong></span>
       </div>
 
-      {view === "home" && <HomeView trainings={trainings} groups={groups} friendCode={friendCode} onUpdateTrainings={setTrainings} />}
+      {view === "home" && <HomeView trainings={trainings} groups={groups} friendCode={friendCode} onUpdateTrainings={setTrainings} onUpdateGroups={setGroups} />}
       {view === "add" && <AddView onAdd={addTraining} onAddPeriod={addPeriod} />}
-      {view === "archive" && <ArchiveView trainings={trainings} groups={groups} onDelete={deleteTraining} onUpdateTrainings={setTrainings} onDeleteGroup={(gid) => setGroups(prev => prev.filter(g => g.id !== gid))} />}
+      {view === "archive" && <ArchiveView trainings={trainings} groups={groups} onDelete={deleteTraining} onUpdateTrainings={setTrainings} onDeleteGroup={(gid) => setGroups(prev => prev.filter(g => g.id !== gid))} onUpdateGroups={setGroups} />}
       {view === "friends" && <FriendsView />}
 
       <BottomNav
