@@ -17,6 +17,7 @@ import PdfExportDialog from "./PdfExportDialog";
 import EditTrainingDialog from "./EditTrainingDialog";
 import EditPeriodDialog from "./EditPeriodDialog";
 import TrainingHistoryDialog from "./TrainingHistoryDialog";
+import PeriodHistoryDialog from "./PeriodHistoryDialog";
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -30,7 +31,7 @@ type TimelineItem =
   | { type: "period"; group: TrainingGroup; trainings: Training[]; sortDate: string; sortDuration: number };
 
 function VisibilityDropdown({ current, onChange }: { current: string; onChange: (v: string) => void }) {
-  const visLabel = current === "private" ? "🔒 Privaatne" : current === "hidden" ? "👁️‍🗨️ Peidetud" : "👥 Sõpradele";
+  const visLabel = current === "private" ? "🔒 Privaatne" : "👥 Sõpradele";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -43,7 +44,6 @@ function VisibilityDropdown({ current, onChange }: { current: string; onChange: 
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => onChange("friends")}><Eye className="h-3 w-3 mr-2" /> 👥 Sõpradele nähtav</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onChange("private")}><EyeOff className="h-3 w-3 mr-2" /> 🔒 Privaatne</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChange("hidden")}><EyeOff className="h-3 w-3 mr-2" /> 👁️‍🗨️ Peidetud</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -123,6 +123,7 @@ export default function HomeView({
   const [editTraining, setEditTraining] = useState<Training | null>(null);
   const [editPeriod, setEditPeriod] = useState<TrainingGroup | null>(null);
   const [historyTraining, setHistoryTraining] = useState<Training | null>(null);
+  const [historyPeriod, setHistoryPeriod] = useState<TrainingGroup | null>(null);
 
   const trainingTypes = useMemo(() => {
     const types = new Set(trainings.map((t) => t.name));
@@ -137,11 +138,12 @@ export default function HomeView({
     });
   };
 
+  // Home page: only show "friends" visibility items
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [];
     const grouped = new Map<string, Training[]>();
     const ungroupedList: Training[] = [];
-    const visibleTrainings = trainings.filter((t) => t.visibility !== "hidden");
+    const visibleTrainings = trainings.filter((t) => t.visibility === "friends");
 
     for (const t of visibleTrainings) {
       if (t.group_id) {
@@ -232,7 +234,7 @@ export default function HomeView({
       <div className="border border-border rounded-sm p-3 mb-4 bg-card space-y-2">
         <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
           Filtrid ja sorteerimine
-          <InfoTooltip text="Filtreeri ja sorteeri oma treeninguid. Perioodid ja üksiktreeningud sorteeritakse koos ühtse ajajoonena." />
+          <InfoTooltip text="Filtreeri ja sorteeri oma treeninguid. Perioodid ja üksiktreeningud sorteeritakse koos ühtse ajajoonena. Avalehel kuvatakse ainult sõpradele nähtavaid treeninguid." />
         </div>
         <div className="flex flex-wrap gap-2">
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
@@ -283,6 +285,10 @@ export default function HomeView({
                     📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
                   </button>
                   <div className="flex items-center gap-1">
+                    <button onClick={() => setHistoryPeriod(item.group)}
+                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                      <History className="h-3 w-3" />
+                    </button>
                     <button onClick={() => setEditPeriod(item.group)}
                       className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
                       <Pencil className="h-3 w-3" />
@@ -292,18 +298,13 @@ export default function HomeView({
                 </div>
                 <div className="text-xs text-muted-foreground mb-1">{item.trainings.length} treeningut · {totalMin} min kokku</div>
                 {isExpanded && item.trainings.map((t) => (
-                  <div key={t.id} className="text-[13px] py-1 flex items-center justify-between border-t border-border/50">
+                  <div key={t.id} className="text-[13px] py-1 border-t border-border/50">
                     <span>{t.date} – {t.name} · {t.duration} min{t.note ? ` · ${t.note}` : ""}</span>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setHistoryTraining(t)}
-                        className="text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1 py-0.5 text-muted-foreground hover:text-foreground">
-                        <History className="h-3 w-3" />
-                      </button>
-                      <button onClick={() => setEditTraining(t)}
-                        className="text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1 py-0.5 text-muted-foreground hover:text-foreground">
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                    </div>
+                    {t.effort_type && t.effort_value && (
+                      <span className="text-xs text-muted-foreground ml-1">
+                        ({t.effort_type === "effort" ? `Pingutus: ${t.effort_value}/10` : `Pulss: ${t.effort_value} BPM`})
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -352,7 +353,11 @@ export default function HomeView({
         <TrainingHistoryDialog training={historyTraining} open={!!historyTraining}
           onClose={() => setHistoryTraining(null)} onRestore={handleSaveEdit} />
       )}
-      <PdfExportDialog trainings={trainings.filter(t => t.visibility !== "hidden")} groups={groups}
+      {historyPeriod && (
+        <PeriodHistoryDialog group={historyPeriod} open={!!historyPeriod}
+          onClose={() => setHistoryPeriod(null)} onRestore={handleSavePeriod} />
+      )}
+      <PdfExportDialog trainings={trainings.filter(t => t.visibility === "friends")} groups={groups}
         open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} />
     </div>
   );
