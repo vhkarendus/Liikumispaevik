@@ -38,6 +38,36 @@ export type Database = {
         }
         Relationships: []
       }
+      period_history: {
+        Row: {
+          changed_at: string
+          end_date: string
+          id: string
+          name: string
+          period_id: string
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          end_date: string
+          id?: string
+          name: string
+          period_id: string
+          start_date: string
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          period_id?: string
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
