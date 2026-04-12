@@ -36,6 +36,19 @@ export default function EditPeriodDialog({
     setErrors({});
 
     setSaving(true);
+
+    // Save current state to history before updating
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("period_history").insert({
+        period_id: group.id,
+        user_id: user.id,
+        name: group.name,
+        start_date: group.start_date,
+        end_date: group.end_date,
+      });
+    }
+
     const { error } = await supabase
       .from("training_groups")
       .update({ name, start_date: startDate, end_date: endDate })

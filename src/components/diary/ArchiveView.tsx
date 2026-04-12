@@ -15,6 +15,7 @@ import InfoTooltip from "./InfoTooltip";
 import EditTrainingDialog from "./EditTrainingDialog";
 import EditPeriodDialog from "./EditPeriodDialog";
 import TrainingHistoryDialog from "./TrainingHistoryDialog";
+import PeriodHistoryDialog from "./PeriodHistoryDialog";
 import PdfExportDialog from "./PdfExportDialog";
 import { format } from "date-fns";
 import { et } from "date-fns/locale";
@@ -33,7 +34,7 @@ type TimelineItem =
   | { type: "period"; group: TrainingGroup; trainings: Training[]; sortDate: string; sortDuration: number };
 
 function VisibilityDropdown({ current, onChange }: { current: string; onChange: (v: string) => void }) {
-  const visLabel = current === "private" ? "🔒 Privaatne" : current === "hidden" ? "👁️‍🗨️ Peidetud" : "👥 Sõpradele";
+  const visLabel = current === "private" ? "🔒 Privaatne" : "👥 Sõpradele";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -45,7 +46,6 @@ function VisibilityDropdown({ current, onChange }: { current: string; onChange: 
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => onChange("friends")}><Eye className="h-3 w-3 mr-2" /> 👥 Sõpradele nähtav</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onChange("private")}><EyeOff className="h-3 w-3 mr-2" /> 🔒 Privaatne</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChange("hidden")}><EyeOff className="h-3 w-3 mr-2" /> 👁️‍🗨️ Peidetud</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -132,6 +132,7 @@ export default function ArchiveView({
   const [editTraining, setEditTraining] = useState<Training | null>(null);
   const [editPeriod, setEditPeriod] = useState<TrainingGroup | null>(null);
   const [historyTraining, setHistoryTraining] = useState<Training | null>(null);
+  const [historyPeriod, setHistoryPeriod] = useState<TrainingGroup | null>(null);
   const [displayCount, setDisplayCount] = useState(10);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
@@ -149,6 +150,7 @@ export default function ArchiveView({
     });
   };
 
+  // Archive shows ALL trainings (both friends and private)
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [];
     const grouped = new Map<string, Training[]>();
@@ -167,7 +169,6 @@ export default function ArchiveView({
       const group = groups.find((g) => g.id === gid);
       if (!group) { ungroupedList.push(...periodTrainings); continue; }
       if (filterType && !periodTrainings.some((t) => t.name === filterType)) continue;
-      // Fix same-day filtering: use <= and >= for inclusive range
       if (filterDateFrom && group.end_date < filterDateFrom) continue;
       if (filterDateTo && group.start_date > filterDateTo) continue;
       const totalDuration = periodTrainings.reduce((s, t) => s + t.duration, 0);
@@ -179,7 +180,6 @@ export default function ArchiveView({
 
     for (const t of ungroupedList) {
       if (filterType && t.name !== filterType) continue;
-      // Fix same-day filtering: use <= and >= for inclusive comparison
       if (filterDateFrom && t.date < filterDateFrom) continue;
       if (filterDateTo && t.date > filterDateTo) continue;
       items.push({ type: "single", training: t, sortDate: t.date, sortDuration: t.duration });
@@ -252,7 +252,7 @@ export default function ArchiveView({
       <div className="border border-border rounded-sm p-3 mb-4 bg-card space-y-2">
         <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
           Filtrid ja sorteerimine
-          <InfoTooltip text="Filtreeri spordialade, kuupäeva ja kestuse järgi. Perioodid ja üksiktreeningud sorteeritakse koos. Arhiivis on näha ka peidetud treeningud." />
+          <InfoTooltip text="Filtreeri spordialade, kuupäeva ja kestuse järgi. Perioodid ja üksiktreeningud sorteeritakse koos. Arhiivis on näha kõik treeningud (ka privaatsed)." />
         </div>
         <div className="flex flex-wrap gap-2">
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
@@ -301,6 +301,10 @@ export default function ArchiveView({
                     📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
                   </button>
                   <div className="flex items-center gap-1">
+                    <button onClick={() => setHistoryPeriod(item.group)}
+                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                      <History className="h-3 w-3" />
+                    </button>
                     <button onClick={() => setEditPeriod(item.group)}
                       className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
                       <Pencil className="h-3 w-3" />
@@ -335,10 +339,6 @@ export default function ArchiveView({
                             {effortLabel(t) && <span className="text-muted-foreground ml-1">({effortLabel(t)})</span>}
                           </td>
                           <td className="py-1 flex gap-1">
-                            <button onClick={() => setHistoryTraining(t)}
-                              className="text-xs cursor-pointer border border-border rounded-sm px-1.5 py-0.5 bg-background text-muted-foreground hover:text-foreground">
-                              <History className="h-3 w-3" />
-                            </button>
                             <button onClick={() => setEditTraining(t)}
                               className="text-xs cursor-pointer border border-border rounded-sm px-1.5 py-0.5 bg-background text-muted-foreground hover:text-foreground">
                               <Pencil className="h-3 w-3" />
@@ -404,6 +404,10 @@ export default function ArchiveView({
       {historyTraining && (
         <TrainingHistoryDialog training={historyTraining} open={!!historyTraining}
           onClose={() => setHistoryTraining(null)} onRestore={handleSaveEdit} />
+      )}
+      {historyPeriod && (
+        <PeriodHistoryDialog group={historyPeriod} open={!!historyPeriod}
+          onClose={() => setHistoryPeriod(null)} onRestore={handleSavePeriod} />
       )}
 
       <PdfExportDialog trainings={trainings} groups={groups} open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} />
