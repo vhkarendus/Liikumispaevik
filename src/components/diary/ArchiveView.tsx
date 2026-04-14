@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight, History } from "lucide-react";
+import { Lock, Eye, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight, History, RotateCcw } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -34,18 +34,18 @@ type TimelineItem =
   | { type: "period"; group: TrainingGroup; trainings: Training[]; sortDate: string; sortDuration: number };
 
 function VisibilityDropdown({ current, onChange }: { current: string; onChange: (v: string) => void }) {
-  const visLabel = current === "private" ? "🔒 Privaatne" : "👥 Sõpradele";
+  const isPrivate = current === "private";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-          {current === "friends" ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-          <span>{visLabel}</span>
+          {isPrivate ? <Lock className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+          <span>{isPrivate ? "Privaatne" : "Sõpradele"}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => onChange("friends")}><Eye className="h-3 w-3 mr-2" /> 👥 Sõpradele nähtav</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChange("private")}><EyeOff className="h-3 w-3 mr-2" /> 🔒 Privaatne</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("private")}><Lock className="h-3 w-3 mr-2" /> 🔒 Privaatne</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -115,6 +115,7 @@ function DateRangeFilter({ dateFrom, dateTo, onApply }: {
 
 export default function ArchiveView({
   trainings, groups, onDelete, onUpdateTrainings, onDeleteGroup, onUpdateGroups,
+  onRestore, onRestoreGroup, onPermanentDelete, onPermanentDeleteGroup,
 }: {
   trainings: Training[];
   groups: TrainingGroup[];
@@ -122,9 +123,15 @@ export default function ArchiveView({
   onUpdateTrainings: (updated: Training[]) => void;
   onDeleteGroup: (groupId: string) => void;
   onUpdateGroups?: (updated: TrainingGroup[]) => void;
+  onRestore: (id: string) => void;
+  onRestoreGroup: (groupId: string) => void;
+  onPermanentDelete: (id: string) => void;
+  onPermanentDeleteGroup: (groupId: string) => void;
 }) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
+  const [permDeleteId, setPermDeleteId] = useState<string | null>(null);
+  const [permDeleteGroupId, setPermDeleteGroupId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [filterType, setFilterType] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
@@ -136,11 +143,18 @@ export default function ArchiveView({
   const [displayCount, setDisplayCount] = useState(10);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
+  const [showTrash, setShowTrash] = useState(false);
+
+  // Separate active and deleted
+  const activeTrainings = trainings.filter((t) => !t.deleted_at);
+  const activeGroups = groups.filter((g) => !g.deleted_at);
+  const deletedTrainings = trainings.filter((t) => t.deleted_at && !t.group_id);
+  const deletedGroups = groups.filter((g) => g.deleted_at);
 
   const trainingTypes = useMemo(() => {
-    const types = new Set(trainings.map((t) => t.name));
+    const types = new Set(activeTrainings.map((t) => t.name));
     return Array.from(types).sort();
-  }, [trainings]);
+  }, [activeTrainings]);
 
   const togglePeriod = (gid: string) => {
     setExpandedPeriods(prev => {
@@ -150,13 +164,12 @@ export default function ArchiveView({
     });
   };
 
-  // Archive shows ALL trainings (both friends and private)
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [];
     const grouped = new Map<string, Training[]>();
     const ungroupedList: Training[] = [];
 
-    for (const t of trainings) {
+    for (const t of activeTrainings) {
       if (t.group_id) {
         if (!grouped.has(t.group_id)) grouped.set(t.group_id, []);
         grouped.get(t.group_id)!.push(t);
@@ -166,7 +179,7 @@ export default function ArchiveView({
     }
 
     for (const [gid, periodTrainings] of grouped) {
-      const group = groups.find((g) => g.id === gid);
+      const group = activeGroups.find((g) => g.id === gid);
       if (!group) { ungroupedList.push(...periodTrainings); continue; }
       if (filterType && !periodTrainings.some((t) => t.name === filterType)) continue;
       if (filterDateFrom && group.end_date < filterDateFrom) continue;
@@ -193,7 +206,7 @@ export default function ArchiveView({
     }
 
     return items;
-  }, [trainings, groups, sortBy, filterType, filterDateFrom, filterDateTo]);
+  }, [activeTrainings, activeGroups, sortBy, filterType, filterDateFrom, filterDateTo]);
 
   const displayedTimeline = timeline.slice(0, displayCount);
 
@@ -201,12 +214,8 @@ export default function ArchiveView({
     if (deleteId) { onDelete(deleteId); setDeleteId(null); }
   };
 
-  const handleDeleteGroup = async () => {
+  const handleDeleteGroup = () => {
     if (!deleteGroupId) return;
-    const ids = trainings.filter((t) => t.group_id === deleteGroupId).map((t) => t.id);
-    await supabase.from("trainings").delete().in("id", ids);
-    await supabase.from("training_groups").delete().eq("id", deleteGroupId);
-    onUpdateTrainings(trainings.filter((t) => t.group_id !== deleteGroupId));
     onDeleteGroup(deleteGroupId);
     setDeleteGroupId(null);
   };
@@ -238,159 +247,209 @@ export default function ArchiveView({
     setDisplayCount(10);
   };
 
+  const trashCount = deletedTrainings.length + deletedGroups.length;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-medium">Arhiiv</h2>
-        <button onClick={() => setPdfDialogOpen(true)}
-          className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-2 py-1 text-muted-foreground hover:text-foreground">
-          <FileDown className="h-3 w-3" /> PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowTrash(!showTrash)}
+            className={`flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-2 py-1 ${showTrash ? "text-destructive border-destructive" : "text-muted-foreground hover:text-foreground"}`}>
+            <Trash2 className="h-3 w-3" /> Kustutatud {trashCount > 0 && `(${trashCount})`}
+          </button>
+          <button onClick={() => setPdfDialogOpen(true)}
+            className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-2 py-1 text-muted-foreground hover:text-foreground">
+            <FileDown className="h-3 w-3" /> PDF
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="border border-border rounded-sm p-3 mb-4 bg-card space-y-2">
-        <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
-          Filtrid ja sorteerimine
-          <InfoTooltip text="Filtreeri spordialade, kuupäeva ja kestuse järgi. Perioodid ja üksiktreeningud sorteeritakse koos. Arhiivis on näha kõik treeningud (ka privaatsed)." />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
-            <option value="newest">Uuemad enne</option>
-            <option value="oldest">Vanemad enne</option>
-            <option value="duration_desc">Pikem kestus</option>
-            <option value="duration_asc">Lühem kestus</option>
-          </select>
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
-            <option value="">Kõik spordialad</option>
-            {trainingTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select value={displayCount} onChange={(e) => setDisplayCount(Number(e.target.value))}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
-            {[5, 10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} kirjet</option>)}
-          </select>
-        </div>
-        <div className="flex gap-2 items-center">
-          <DateRangeFilter dateFrom={filterDateFrom} dateTo={filterDateTo}
-            onApply={(from, to) => { setFilterDateFrom(from); setFilterDateTo(to); }} />
-          {(filterType || filterDateFrom || filterDateTo || sortBy !== "newest" || displayCount !== 10) && (
-            <button onClick={resetFilters}
-              className="text-xs text-destructive cursor-pointer bg-transparent border-none underline">Tühjenda</button>
+      {showTrash ? (
+        <div>
+          <h3 className="text-sm font-medium mb-2">Hiljuti kustutatud</h3>
+          {trashCount === 0 ? (
+            <p className="text-sm text-muted-foreground">Kustutatud kirjeid pole.</p>
+          ) : (
+            <>
+              {deletedGroups.map((g) => {
+                const periodTrainings = trainings.filter((t) => t.group_id === g.id);
+                return (
+                  <div key={g.id} className="border border-destructive/30 rounded-sm p-3 mb-2 bg-destructive/5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold">📅 {g.name}: {g.start_date} – {g.end_date}</span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => onRestoreGroup(g.id)}
+                          className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-primary hover:bg-primary hover:text-primary-foreground">
+                          <RotateCcw className="h-3 w-3" /> Taasta
+                        </button>
+                        <button onClick={() => setPermDeleteGroupId(g.id)}
+                          className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-destructive rounded-sm px-1.5 py-0.5 text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                          <Trash2 className="h-3 w-3" /> Jäädavalt
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">{periodTrainings.length} treeningut</div>
+                  </div>
+                );
+              })}
+              {deletedTrainings.map((t) => (
+                <div key={t.id} className="border border-destructive/30 rounded-sm p-3 mb-2 bg-destructive/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold">{t.name}</span>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => onRestore(t.id)}
+                        className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-primary hover:bg-primary hover:text-primary-foreground">
+                        <RotateCcw className="h-3 w-3" /> Taasta
+                      </button>
+                      <button onClick={() => setPermDeleteId(t.id)}
+                        className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-destructive rounded-sm px-1.5 py-0.5 text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                        <Trash2 className="h-3 w-3" /> Jäädavalt
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-muted-foreground text-[13px]">{t.date} · {t.duration} min</div>
+                </div>
+              ))}
+            </>
           )}
         </div>
-      </div>
-
-      {displayedTimeline.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Arhiiv on tühi</p>
       ) : (
-        displayedTimeline.map((item) => {
-          if (item.type === "period") {
-            const periodVis = item.trainings[0]?.visibility || "friends";
-            const totalMin = item.trainings.reduce((s, t) => s + t.duration, 0);
-            const isExpanded = expandedPeriods.has(item.group.id);
-            return (
-              <div key={item.group.id} className="border border-primary/30 rounded-sm p-3 mb-3 bg-primary/5">
-                <div className="flex items-center justify-between mb-1">
-                  <button
-                    onClick={() => togglePeriod(item.group.id)}
-                    className="flex items-center gap-1 text-sm font-bold bg-transparent border-none cursor-pointer text-foreground p-0"
-                  >
-                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setHistoryPeriod(item.group)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-                      <History className="h-3 w-3" />
-                    </button>
-                    <button onClick={() => setEditPeriod(item.group)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} />
-                    <button onClick={() => setDeleteGroupId(item.group.id)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-destructive rounded-sm px-1.5 py-0.5 text-destructive hover:bg-destructive hover:text-destructive-foreground">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-                <div className="text-xs text-muted-foreground mb-1">{item.trainings.length} treeningut · {totalMin} min kokku</div>
-                {isExpanded && (
-                  <table className="w-full text-sm border-collapse mt-2">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-1 pr-2 text-xs">Kuupäev</th>
-                        <th className="text-left py-1 pr-2 text-xs">Spordiala</th>
-                        <th className="text-left py-1 pr-2 text-xs">Kestus</th>
-                        <th className="text-left py-1 pr-2 text-xs">Märkus</th>
-                        <th className="text-left py-1 text-xs"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {item.trainings.map((t) => (
-                        <tr key={t.id} className="border-b border-border">
-                          <td className="py-1 pr-2 text-xs">{t.date}</td>
-                          <td className="py-1 pr-2 text-xs">{t.name}</td>
-                          <td className="py-1 pr-2 text-xs">{t.duration} min</td>
-                          <td className="py-1 pr-2 text-xs">
-                            {t.note}
-                            {effortLabel(t) && <span className="text-muted-foreground ml-1">({effortLabel(t)})</span>}
-                          </td>
-                          <td className="py-1 flex gap-1">
-                            <button onClick={() => setEditTraining(t)}
-                              className="text-xs cursor-pointer border border-border rounded-sm px-1.5 py-0.5 bg-background text-muted-foreground hover:text-foreground">
-                              <Pencil className="h-3 w-3" />
-                            </button>
-                            <button onClick={() => setDeleteId(t.id)}
-                              className="text-destructive text-xs cursor-pointer border border-destructive rounded-sm px-2 py-0.5 bg-background hover:bg-destructive hover:text-destructive-foreground">
-                              Kustuta
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            );
-          } else {
-            const t = item.training;
-            return (
-              <div key={t.id} className="border border-border rounded-sm p-3 mb-2 bg-card">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold">{t.name}</span>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setHistoryTraining(t)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-                      <History className="h-3 w-3" />
-                    </button>
-                    <button onClick={() => setEditTraining(t)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <VisibilityDropdown current={t.visibility} onChange={(v) => updateTrainingVisibility(t.id, v)} />
-                    <button onClick={() => setDeleteId(t.id)}
-                      className="text-destructive text-xs cursor-pointer border border-destructive rounded-sm px-2 py-0.5 bg-background hover:bg-destructive hover:text-destructive-foreground">
-                      Kustuta
-                    </button>
-                  </div>
-                </div>
-                <div className="text-muted-foreground text-[13px]">{t.date} · {t.duration} min</div>
-                {t.note && <div className="text-[13px] mt-0.5">{t.note}</div>}
-                {effortLabel(t) && <div className="text-xs text-muted-foreground mt-0.5">{effortLabel(t)}</div>}
-                <div className="text-muted-foreground text-[11px] mt-1">Lisatud: {formatDateTime(t.created_at)}</div>
-              </div>
-            );
-          }
-        })
-      )}
+        <>
+          {/* Filters */}
+          <div className="border border-border rounded-sm p-3 mb-4 bg-card space-y-2">
+            <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
+              Filtrid ja sorteerimine
+              <InfoTooltip text="Filtreeri spordialade, kuupäeva ja kestuse järgi. Perioodid ja üksiktreeningud sorteeritakse koos. Arhiivis on näha kõik treeningud (ka privaatsed)." />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
+                <option value="newest">Uuemad enne</option>
+                <option value="oldest">Vanemad enne</option>
+                <option value="duration_desc">Pikem kestus</option>
+                <option value="duration_asc">Lühem kestus</option>
+              </select>
+              <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
+                className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
+                <option value="">Kõik spordialad</option>
+                {trainingTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select value={displayCount} onChange={(e) => setDisplayCount(Number(e.target.value))}
+                className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
+                {[5, 10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} kirjet</option>)}
+              </select>
+            </div>
+            <div className="flex gap-2 items-center">
+              <DateRangeFilter dateFrom={filterDateFrom} dateTo={filterDateTo}
+                onApply={(from, to) => { setFilterDateFrom(from); setFilterDateTo(to); }} />
+              {(filterType || filterDateFrom || filterDateTo || sortBy !== "newest" || displayCount !== 10) && (
+                <button onClick={resetFilters}
+                  className="text-xs text-destructive cursor-pointer bg-transparent border-none underline">Tühjenda</button>
+              )}
+            </div>
+          </div>
 
-      {timeline.length > displayCount && (
-        <p className="text-xs text-muted-foreground text-center mt-2">
-          Näidatud {displayCount}/{timeline.length} kirjet
-        </p>
+          {displayedTimeline.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Arhiiv on tühi</p>
+          ) : (
+            displayedTimeline.map((item) => {
+              if (item.type === "period") {
+                const periodVis = item.trainings[0]?.visibility || "friends";
+                const totalMin = item.trainings.reduce((s, t) => s + t.duration, 0);
+                const isExpanded = expandedPeriods.has(item.group.id);
+                return (
+                  <div key={item.group.id} className="border border-primary/30 rounded-sm p-3 mb-3 bg-primary/5">
+                    <div className="flex items-center justify-between mb-1">
+                      <button
+                        onClick={() => togglePeriod(item.group.id)}
+                        className="flex items-center gap-1 text-sm font-bold bg-transparent border-none cursor-pointer text-foreground p-0"
+                      >
+                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
+                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setHistoryPeriod(item.group)}
+                          className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                          <History className="h-3 w-3" />
+                        </button>
+                        <button onClick={() => setEditPeriod(item.group)}
+                          className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} />
+                        <button onClick={() => setDeleteGroupId(item.group.id)}
+                          className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-destructive rounded-sm px-1.5 py-0.5 text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-1">{item.trainings.length} treeningut · {totalMin} min kokku</div>
+                    {isExpanded && (
+                      <table className="w-full text-sm border-collapse mt-2">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left py-1 pr-2 text-xs">Kuupäev</th>
+                            <th className="text-left py-1 pr-2 text-xs">Spordiala</th>
+                            <th className="text-left py-1 pr-2 text-xs">Kestus</th>
+                            <th className="text-left py-1 pr-2 text-xs">Märkus</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {item.trainings.map((t) => (
+                            <tr key={t.id} className="border-b border-border">
+                              <td className="py-1 pr-2 text-xs">{t.date}</td>
+                              <td className="py-1 pr-2 text-xs">{t.name}</td>
+                              <td className="py-1 pr-2 text-xs">{t.duration} min</td>
+                              <td className="py-1 pr-2 text-xs">
+                                {t.note}
+                                {effortLabel(t) && <span className="text-muted-foreground ml-1">({effortLabel(t)})</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                );
+              } else {
+                const t = item.training;
+                return (
+                  <div key={t.id} className="border border-border rounded-sm p-3 mb-2 bg-card">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold">{t.name}</span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setHistoryTraining(t)}
+                          className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                          <History className="h-3 w-3" />
+                        </button>
+                        <button onClick={() => setEditTraining(t)}
+                          className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <VisibilityDropdown current={t.visibility} onChange={(v) => updateTrainingVisibility(t.id, v)} />
+                        <button onClick={() => setDeleteId(t.id)}
+                          className="text-destructive text-xs cursor-pointer border border-destructive rounded-sm px-2 py-0.5 bg-background hover:bg-destructive hover:text-destructive-foreground">
+                          Kustuta
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-muted-foreground text-[13px]">{t.date} · {t.duration} min</div>
+                    {t.note && <div className="text-[13px] mt-0.5">{t.note}</div>}
+                    {effortLabel(t) && <div className="text-xs text-muted-foreground mt-0.5">{effortLabel(t)}</div>}
+                    <div className="text-muted-foreground text-[11px] mt-1">Lisatud: {formatDateTime(t.created_at)}</div>
+                  </div>
+                );
+              }
+            })
+          )}
+
+          {timeline.length > displayCount && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Näidatud {displayCount}/{timeline.length} kirjet
+            </p>
+          )}
+        </>
       )}
 
       {editTraining && (
@@ -410,13 +469,14 @@ export default function ArchiveView({
           onClose={() => setHistoryPeriod(null)} onRestore={handleSavePeriod} />
       )}
 
-      <PdfExportDialog trainings={trainings} groups={groups} open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} />
+      <PdfExportDialog trainings={activeTrainings} groups={activeGroups} open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} />
 
+      {/* Soft delete confirm */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Kas oled kindel, et tahad kustutada?</AlertDialogTitle>
-            <AlertDialogDescription>Seda tegevust ei saa tagasi võtta.</AlertDialogDescription>
+            <AlertDialogDescription>Treening liigutatakse prügikasti. Saad selle hiljem taastada.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Tühista</AlertDialogCancel>
@@ -429,11 +489,38 @@ export default function ArchiveView({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Kustuta kogu periood?</AlertDialogTitle>
-            <AlertDialogDescription>Kõik perioodi treeningud kustutatakse. Seda ei saa tagasi võtta.</AlertDialogDescription>
+            <AlertDialogDescription>Periood ja kõik selle treeningud liigutatakse prügikasti.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Tühista</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteGroup}>Jah, kustuta</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent delete confirms */}
+      <AlertDialog open={!!permDeleteId} onOpenChange={(o) => !o && setPermDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kustuta jäädavalt?</AlertDialogTitle>
+            <AlertDialogDescription>Seda tegevust ei saa tagasi võtta.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tühista</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (permDeleteId) { onPermanentDelete(permDeleteId); setPermDeleteId(null); } }}>Jah, kustuta jäädavalt</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!permDeleteGroupId} onOpenChange={(o) => !o && setPermDeleteGroupId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kustuta periood jäädavalt?</AlertDialogTitle>
+            <AlertDialogDescription>Kõik perioodi treeningud kustutatakse jäädavalt. Seda ei saa tagasi võtta.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tühista</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (permDeleteGroupId) { onPermanentDeleteGroup(permDeleteGroupId); setPermDeleteGroupId(null); } }}>Jah, kustuta jäädavalt</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
