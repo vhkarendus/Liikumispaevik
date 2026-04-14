@@ -9,6 +9,7 @@ export type Training = {
   group_id: string | null;
   effort_type: string | null;
   effort_value: number | null;
+  deleted_at: string | null;
 };
 
 export type TrainingGroup = {
@@ -18,6 +19,7 @@ export type TrainingGroup = {
   end_date: string;
   created_at: string;
   user_id: string;
+  deleted_at: string | null;
 };
 
 export type FriendProfile = {
