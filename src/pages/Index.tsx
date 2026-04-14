@@ -8,6 +8,7 @@ import HomeView from "@/components/diary/HomeView";
 import AddView from "@/components/diary/AddView";
 import ArchiveView from "@/components/diary/ArchiveView";
 import FriendsView from "@/components/diary/FriendsView";
+import ProfileView from "@/components/diary/ProfileView";
 import BottomNav from "@/components/diary/BottomNav";
 
 export default function Index() {
@@ -26,7 +27,6 @@ export default function Index() {
     if (!loading && !user) navigate("/login");
   }, [user, loading, navigate]);
 
-  // Fetch data
   useEffect(() => {
     if (!user) return;
 
@@ -46,7 +46,6 @@ export default function Index() {
 
     fetchAll();
 
-    // Update last_seen periodically
     const updateLastSeen = () => {
       supabase.from("profiles").update({ last_seen: new Date().toISOString() }).eq("user_id", user.id).then(() => {});
     };
@@ -95,13 +94,54 @@ export default function Index() {
     }
   };
 
+  // Soft delete: set deleted_at instead of removing
   const deleteTraining = async (id: string) => {
+    const now = new Date().toISOString();
+    await supabase.from("trainings").update({ deleted_at: now }).eq("id", id);
+    setTrainings((prev) => prev.map((t) => t.id === id ? { ...t, deleted_at: now } : t));
+  };
+
+  const deleteGroup = async (groupId: string) => {
+    const now = new Date().toISOString();
+    const ids = trainings.filter((t) => t.group_id === groupId).map((t) => t.id);
+    await supabase.from("trainings").update({ deleted_at: now }).in("id", ids);
+    await supabase.from("training_groups").update({ deleted_at: now }).eq("id", groupId);
+    setTrainings((prev) => prev.map((t) => t.group_id === groupId ? { ...t, deleted_at: now } : t));
+    setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, deleted_at: now } : g));
+  };
+
+  const restoreTraining = async (id: string) => {
+    await supabase.from("trainings").update({ deleted_at: null }).eq("id", id);
+    setTrainings((prev) => prev.map((t) => t.id === id ? { ...t, deleted_at: null } : t));
+  };
+
+  const restoreGroup = async (groupId: string) => {
+    const ids = trainings.filter((t) => t.group_id === groupId).map((t) => t.id);
+    await supabase.from("trainings").update({ deleted_at: null }).in("id", ids);
+    await supabase.from("training_groups").update({ deleted_at: null }).eq("id", groupId);
+    setTrainings((prev) => prev.map((t) => t.group_id === groupId ? { ...t, deleted_at: null } : t));
+    setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, deleted_at: null } : g));
+  };
+
+  const permanentDeleteTraining = async (id: string) => {
     await supabase.from("trainings").delete().eq("id", id);
     setTrainings((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const permanentDeleteGroup = async (groupId: string) => {
+    const ids = trainings.filter((t) => t.group_id === groupId).map((t) => t.id);
+    await supabase.from("trainings").delete().in("id", ids);
+    await supabase.from("training_groups").delete().eq("id", groupId);
+    setTrainings((prev) => prev.filter((t) => t.group_id !== groupId));
+    setGroups((prev) => prev.filter((g) => g.id !== groupId));
+  };
+
   if (loading) return <div className="p-10 text-center">Laadin...</div>;
   if (!user) return null;
+
+  // Active (non-deleted) items
+  const activeTrainings = trainings.filter((t) => !t.deleted_at);
+  const activeGroups = groups.filter((g) => !g.deleted_at);
 
   return (
     <div className="max-w-[500px] mx-auto px-4 pt-4 pb-[70px]">
@@ -115,10 +155,24 @@ export default function Index() {
         <span>Sisse logitud: <strong>{displayName}</strong></span>
       </div>
 
-      {view === "home" && <HomeView trainings={trainings} groups={groups} friendCode={friendCode} onUpdateTrainings={setTrainings} onUpdateGroups={setGroups} />}
+      {view === "home" && <HomeView trainings={activeTrainings} groups={activeGroups} friendCode={friendCode} onUpdateTrainings={setTrainings} onUpdateGroups={setGroups} />}
       {view === "add" && <AddView onAdd={addTraining} onAddPeriod={addPeriod} />}
-      {view === "archive" && <ArchiveView trainings={trainings} groups={groups} onDelete={deleteTraining} onUpdateTrainings={setTrainings} onDeleteGroup={(gid) => setGroups(prev => prev.filter(g => g.id !== gid))} onUpdateGroups={setGroups} />}
+      {view === "archive" && (
+        <ArchiveView
+          trainings={trainings}
+          groups={groups}
+          onDelete={deleteTraining}
+          onUpdateTrainings={setTrainings}
+          onDeleteGroup={deleteGroup}
+          onUpdateGroups={setGroups}
+          onRestore={restoreTraining}
+          onRestoreGroup={restoreGroup}
+          onPermanentDelete={permanentDeleteTraining}
+          onPermanentDeleteGroup={permanentDeleteGroup}
+        />
+      )}
       {view === "friends" && <FriendsView />}
+      {view === "profile" && <ProfileView trainings={trainings} />}
 
       <BottomNav
         current={view}

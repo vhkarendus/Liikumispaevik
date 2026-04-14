@@ -101,6 +101,7 @@ export type Database = {
       training_groups: {
         Row: {
           created_at: string
+          deleted_at: string | null
           end_date: string
           id: string
           name: string
@@ -109,6 +110,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           end_date: string
           id?: string
           name?: string
@@ -117,6 +119,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           end_date?: string
           id?: string
           name?: string
@@ -171,6 +174,7 @@ export type Database = {
         Row: {
           created_at: string
           date: string
+          deleted_at: string | null
           duration: number
           effort_type: string | null
           effort_value: number | null
@@ -184,6 +188,7 @@ export type Database = {
         Insert: {
           created_at?: string
           date: string
+          deleted_at?: string | null
           duration: number
           effort_type?: string | null
           effort_value?: number | null
@@ -197,6 +202,7 @@ export type Database = {
         Update: {
           created_at?: string
           date?: string
+          deleted_at?: string | null
           duration?: number
           effort_type?: string | null
           effort_value?: number | null
