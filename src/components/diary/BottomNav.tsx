@@ -21,6 +21,7 @@ export default function BottomNav({
     { key: "add", label: "Lisa" },
     { key: "archive", label: "Arhiiv" },
     { key: "friends", label: pendingRequests > 0 ? `Sõbrad (${pendingRequests})` : "Sõbrad" },
+    { key: "profile", label: "Profiil" },
   ];
 
   return (
