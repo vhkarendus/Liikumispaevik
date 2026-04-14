@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff, CalendarIcon, ChevronDown, ChevronRight, Pencil, History } from "lucide-react";
+import { Lock, Eye, CalendarIcon, ChevronDown, ChevronRight, Pencil, History } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -31,19 +31,19 @@ type TimelineItem =
   | { type: "period"; group: TrainingGroup; trainings: Training[]; sortDate: string; sortDuration: number };
 
 function VisibilityDropdown({ current, onChange }: { current: string; onChange: (v: string) => void }) {
-  const visLabel = current === "private" ? "🔒 Privaatne" : "👥 Sõpradele";
+  const isPrivate = current === "private";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
           title="Muuda nähtavust">
-          {current === "friends" ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-          <span>{visLabel}</span>
+          {isPrivate ? <Lock className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+          <span>{isPrivate ? "Privaatne" : "Sõpradele"}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => onChange("friends")}><Eye className="h-3 w-3 mr-2" /> 👥 Sõpradele nähtav</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChange("private")}><EyeOff className="h-3 w-3 mr-2" /> 🔒 Privaatne</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("private")}><Lock className="h-3 w-3 mr-2" /> 🔒 Privaatne</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
