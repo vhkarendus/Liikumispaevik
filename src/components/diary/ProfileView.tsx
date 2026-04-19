@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Training } from "@/types/training";
+import { Training, TrainingGroup } from "@/types/training";
+import { Camera } from "lucide-react";
+import { toast } from "sonner";
 
 function effortLabel(t: Training) {
   if (!t.effort_type || !t.effort_value) return null;
@@ -11,53 +13,94 @@ function effortLabel(t: Training) {
   return null;
 }
 
-export default function ProfileView({ trainings }: { trainings: Training[] }) {
+export default function ProfileView({
+  trainings, groups,
+}: {
+  trainings: Training[];
+  groups: TrainingGroup[];
+}) {
   const { user, username } = useAuth();
   const [joinDate, setJoinDate] = useState<string>("...");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
+  const fallbackAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
   const displayName = username || user?.user_metadata?.full_name || user?.email || "Kasutaja";
 
   useEffect(() => {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("created_at")
+      .select("created_at, avatar_url")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.created_at) {
-          setJoinDate(new Date(data.created_at).toLocaleDateString("et-EE"));
-        }
+        if (data?.created_at) setJoinDate(new Date(data.created_at).toLocaleDateString("et-EE"));
+        if (data?.avatar_url) setAvatarUrl(data.avatar_url);
       });
   }, [user]);
 
-  // Stats: all non-deleted trainings (including private)
-  const activeTrainings = trainings.filter((t) => !t.deleted_at);
-  const totalCount = activeTrainings.length;
-  const totalMinutes = activeTrainings.reduce((s, t) => s + t.duration, 0);
-  const friendsTrainings = activeTrainings
-    .filter((t) => t.visibility === "friends")
+  // Stats: only friend-visible, non-deleted trainings (matches what friends actually see)
+  const friendVisible = trainings.filter((t) => !t.deleted_at && t.visibility === "friends");
+  const totalCount = friendVisible.length;
+  const totalMinutes = friendVisible.reduce((s, t) => s + t.duration, 0);
+
+  const friendsTrainings = friendVisible
+    .slice()
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 20);
+
+  const shownAvatar = avatarUrl || fallbackAvatar;
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Pilt peab olema väiksem kui 5MB"); return; }
+
+    setUploading(true);
+    const ext = file.name.split(".").pop() || "png";
+    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (upErr) { setUploading(false); toast.error("Üleslaadimine ebaõnnestus"); return; }
+    const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+    const url = pub.publicUrl;
+    await supabase.from("profiles").update({ avatar_url: url }).eq("user_id", user.id);
+    setAvatarUrl(url);
+    setUploading(false);
+    toast.success("Profiilipilt uuendatud!");
+  };
 
   return (
     <div>
       <h2 className="text-lg font-medium mb-3">Minu profiil</h2>
 
       <div className="flex items-center gap-3 mb-4">
-        <Avatar className="h-12 w-12">
-          {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
-          <AvatarFallback className="text-sm">{displayName[0].toUpperCase()}</AvatarFallback>
-        </Avatar>
+        <div className="relative">
+          <Avatar className="h-14 w-14">
+            {shownAvatar ? <AvatarImage src={shownAvatar} alt={displayName} /> : null}
+            <AvatarFallback className="text-sm">{displayName[0].toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            title="Muuda profiilipilti"
+            className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1 cursor-pointer border-2 border-background disabled:opacity-50"
+          >
+            <Camera className="h-3 w-3" />
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+        </div>
         <div>
           <div className="text-base font-bold">{displayName}</div>
           <div className="text-xs text-muted-foreground">Liitus: {joinDate}</div>
+          {uploading && <div className="text-xs text-muted-foreground">Laadin üles...</div>}
         </div>
       </div>
 
       <div className="border border-border rounded-sm p-3 mb-4 bg-card">
-        <div className="text-xs font-medium text-muted-foreground mb-2">Statistika</div>
+        <div className="text-xs font-medium text-muted-foreground mb-2">Statistika (sõpradele nähtav)</div>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <div className="text-lg font-bold text-primary">{totalCount}</div>

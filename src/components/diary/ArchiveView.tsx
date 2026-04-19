@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Lock, Eye, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight, History, RotateCcw } from "lucide-react";
+import { Lock, Eye, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -14,8 +14,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import InfoTooltip from "./InfoTooltip";
 import EditTrainingDialog from "./EditTrainingDialog";
 import EditPeriodDialog from "./EditPeriodDialog";
-import TrainingHistoryDialog from "./TrainingHistoryDialog";
-import PeriodHistoryDialog from "./PeriodHistoryDialog";
 import PdfExportDialog from "./PdfExportDialog";
 import { format } from "date-fns";
 import { et } from "date-fns/locale";
@@ -138,8 +136,6 @@ export default function ArchiveView({
   const [filterDateTo, setFilterDateTo] = useState("");
   const [editTraining, setEditTraining] = useState<Training | null>(null);
   const [editPeriod, setEditPeriod] = useState<TrainingGroup | null>(null);
-  const [historyTraining, setHistoryTraining] = useState<Training | null>(null);
-  const [historyPeriod, setHistoryPeriod] = useState<TrainingGroup | null>(null);
   const [displayCount, setDisplayCount] = useState(10);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
@@ -235,8 +231,12 @@ export default function ArchiveView({
     onUpdateTrainings(trainings.map((t) => t.id === updated.id ? updated : t));
   };
 
-  const handleSavePeriod = (updated: TrainingGroup) => {
+  const handleSavePeriod = (updated: TrainingGroup, updatedTrainings: Training[]) => {
     onUpdateGroups?.(groups.map((g) => g.id === updated.id ? updated : g));
+    if (updatedTrainings.length) {
+      onUpdateTrainings(trainings.map((t) => updatedTrainings.find(u => u.id === t.id) || t)
+        .concat(updatedTrainings.filter(u => !trainings.find(t => t.id === u.id))));
+    }
   };
 
   const resetFilters = () => {
@@ -369,10 +369,6 @@ export default function ArchiveView({
                         📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
                       </button>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setHistoryPeriod(item.group)}
-                          className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-                          <History className="h-3 w-3" />
-                        </button>
                         <button onClick={() => setEditPeriod(item.group)}
                           className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
                           <Pencil className="h-3 w-3" />
@@ -419,10 +415,6 @@ export default function ArchiveView({
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-bold">{t.name}</span>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setHistoryTraining(t)}
-                          className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-                          <History className="h-3 w-3" />
-                        </button>
                         <button onClick={() => setEditTraining(t)}
                           className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
                           <Pencil className="h-3 w-3" />
@@ -459,14 +451,6 @@ export default function ArchiveView({
       {editPeriod && (
         <EditPeriodDialog group={editPeriod} open={!!editPeriod}
           onClose={() => setEditPeriod(null)} onSave={handleSavePeriod} />
-      )}
-      {historyTraining && (
-        <TrainingHistoryDialog training={historyTraining} open={!!historyTraining}
-          onClose={() => setHistoryTraining(null)} onRestore={handleSaveEdit} />
-      )}
-      {historyPeriod && (
-        <PeriodHistoryDialog group={historyPeriod} open={!!historyPeriod}
-          onClose={() => setHistoryPeriod(null)} onRestore={handleSavePeriod} />
       )}
 
       <PdfExportDialog trainings={activeTrainings} groups={activeGroups} open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} />

@@ -44,7 +44,8 @@ function FriendStats({ friend }: { friend: FriendProfile }) {
     const load = async () => {
       const [profileRes, trainingsRes] = await Promise.all([
         supabase.from("profiles").select("created_at").eq("user_id", friend.user_id).maybeSingle(),
-        supabase.from("trainings").select("duration").eq("user_id", friend.user_id),
+        supabase.from("trainings").select("duration").eq("user_id", friend.user_id)
+          .eq("visibility", "friends").is("deleted_at", null),
       ]);
       const joined = profileRes.data?.created_at
         ? new Date(profileRes.data.created_at).toLocaleDateString("et-EE")
@@ -170,6 +171,8 @@ export default function FriendsView() {
       .from("trainings")
       .select("*")
       .eq("user_id", friend.user_id)
+      .eq("visibility", "friends")
+      .is("deleted_at", null)
       .order("date", { ascending: false })
       .limit(20);
     setViewTrainings({ friend, trainings: (data as Training[]) || [] });
