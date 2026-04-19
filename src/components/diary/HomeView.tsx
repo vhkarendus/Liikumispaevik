@@ -196,8 +196,12 @@ export default function HomeView({
     onUpdateTrainings(trainings.map((t) => t.id === updated.id ? updated : t));
   };
 
-  const handleSavePeriod = (updated: TrainingGroup) => {
+  const handleSavePeriod = (updated: TrainingGroup, updatedTrainings: Training[]) => {
     onUpdateGroups?.(groups.map((g) => g.id === updated.id ? updated : g));
+    if (updatedTrainings.length) {
+      onUpdateTrainings(trainings.map((t) => updatedTrainings.find(u => u.id === t.id) || t)
+        .concat(updatedTrainings.filter(u => !trainings.find(t => t.id === u.id))));
+    }
   };
 
   const resetFilters = () => {
@@ -281,10 +285,6 @@ export default function HomeView({
                     📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
                   </button>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setHistoryPeriod(item.group)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-                      <History className="h-3 w-3" />
-                    </button>
                     <button onClick={() => setEditPeriod(item.group)}
                       className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
                       <Pencil className="h-3 w-3" />
@@ -312,10 +312,6 @@ export default function HomeView({
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold">{t.name}</span>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setHistoryTraining(t)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
-                      <History className="h-3 w-3" />
-                    </button>
                     <button onClick={() => setEditTraining(t)}
                       className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
                       <Pencil className="h-3 w-3" />
@@ -344,14 +340,6 @@ export default function HomeView({
       {editPeriod && (
         <EditPeriodDialog group={editPeriod} open={!!editPeriod}
           onClose={() => setEditPeriod(null)} onSave={handleSavePeriod} />
-      )}
-      {historyTraining && (
-        <TrainingHistoryDialog training={historyTraining} open={!!historyTraining}
-          onClose={() => setHistoryTraining(null)} onRestore={handleSaveEdit} />
-      )}
-      {historyPeriod && (
-        <PeriodHistoryDialog group={historyPeriod} open={!!historyPeriod}
-          onClose={() => setHistoryPeriod(null)} onRestore={handleSavePeriod} />
       )}
       <PdfExportDialog trainings={trainings.filter(t => t.visibility === "friends")} groups={groups}
         open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} />
