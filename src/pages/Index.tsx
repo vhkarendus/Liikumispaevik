@@ -172,7 +172,7 @@ export default function Index() {
         />
       )}
       {view === "friends" && <FriendsView />}
-      {view === "profile" && <ProfileView trainings={trainings} />}
+      {view === "profile" && <ProfileView trainings={trainings} groups={groups} />}
 
       <BottomNav
         current={view}

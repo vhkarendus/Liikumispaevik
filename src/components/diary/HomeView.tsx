@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Lock, Eye, CalendarIcon, ChevronDown, ChevronRight, Pencil, History } from "lucide-react";
+import { Lock, Eye, CalendarIcon, ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -16,8 +16,6 @@ import InfoTooltip from "./InfoTooltip";
 import PdfExportDialog from "./PdfExportDialog";
 import EditTrainingDialog from "./EditTrainingDialog";
 import EditPeriodDialog from "./EditPeriodDialog";
-import TrainingHistoryDialog from "./TrainingHistoryDialog";
-import PeriodHistoryDialog from "./PeriodHistoryDialog";
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -122,8 +120,6 @@ export default function HomeView({
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [editTraining, setEditTraining] = useState<Training | null>(null);
   const [editPeriod, setEditPeriod] = useState<TrainingGroup | null>(null);
-  const [historyTraining, setHistoryTraining] = useState<Training | null>(null);
-  const [historyPeriod, setHistoryPeriod] = useState<TrainingGroup | null>(null);
 
   const trainingTypes = useMemo(() => {
     const types = new Set(trainings.map((t) => t.name));
