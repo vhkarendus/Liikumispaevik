@@ -19,8 +19,9 @@ export default function Index() {
   const [groups, setGroups] = useState<TrainingGroup[]>([]);
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
 
-  const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
+  const avatarUrl = profileAvatar || user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
   const displayName = username || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || null;
 
   useEffect(() => {
@@ -34,13 +35,16 @@ export default function Index() {
       const [trainingsRes, groupsRes, profileRes, requestsRes] = await Promise.all([
         supabase.from("trainings").select("*").eq("user_id", user.id).order("date", { ascending: false }),
         supabase.from("training_groups").select("*").order("start_date", { ascending: false }),
-        supabase.from("profiles").select("friend_code").eq("user_id", user.id).maybeSingle(),
+        supabase.from("profiles").select("friend_code, avatar_url").eq("user_id", user.id).maybeSingle(),
         supabase.from("friendships").select("id").eq("addressee_id", user.id).eq("status", "pending"),
       ]);
 
       if (trainingsRes.data) setTrainings(trainingsRes.data as Training[]);
       if (groupsRes.data) setGroups(groupsRes.data as TrainingGroup[]);
-      if (profileRes.data) setFriendCode(profileRes.data.friend_code);
+      if (profileRes.data) {
+        setFriendCode(profileRes.data.friend_code);
+        setProfileAvatar(profileRes.data.avatar_url);
+      }
       if (requestsRes.data) setPendingRequests(requestsRes.data.length);
     };
 
