@@ -171,6 +171,8 @@ export default function FriendsView() {
       .from("trainings")
       .select("*")
       .eq("user_id", friend.user_id)
+      .eq("visibility", "friends")
+      .is("deleted_at", null)
       .order("date", { ascending: false })
       .limit(20);
     setViewTrainings({ friend, trainings: (data as Training[]) || [] });
