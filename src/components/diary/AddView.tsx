@@ -207,7 +207,7 @@ function SingleAddForm({ onAdd, draft }: { onAdd: (t: NewTraining) => void; draf
       <div className="mb-3">
         <label className="block text-[13px] mb-0.5 flex items-center">
           Nähtavus
-          <InfoTooltip text="Sõpradele nähtav: sõbrad näevad sinu treeningut. Privaatne: ainult sina näed. Peidetud: ei näidata avalehel, aga nähtav arhiivis." />
+          <InfoTooltip text="Sõpradele: sõbrad näevad sinu treeningut. Privaatne: ainult sina näed (kuvatud vaid arhiivis)." />
         </label>
         <select value={visibility} onChange={(e) => setVisibility(e.target.value)}
           className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background">
