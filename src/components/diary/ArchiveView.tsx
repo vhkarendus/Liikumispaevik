@@ -279,7 +279,13 @@ export default function ArchiveView({
 
       {showTrash ? (
         <div>
-          <h3 className="text-sm font-medium mb-2">Hiljuti kustutatud</h3>
+          <div className="flex items-center gap-2 mb-3">
+            <button onClick={() => setShowTrash(false)}
+              className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-2 py-1 text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-3 w-3" /> Tagasi arhiivi
+            </button>
+            <h3 className="text-sm font-medium">Hiljuti kustutatud</h3>
+          </div>
           {trashCount === 0 ? (
             <p className="text-sm text-muted-foreground">Kustutatud kirjeid pole.</p>
           ) : (
