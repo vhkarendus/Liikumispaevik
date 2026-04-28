@@ -139,6 +139,15 @@ export default function ProfileView({
           </div>
         ))
       )}
+
+      {cropSrc && (
+        <AvatarCropDialog
+          imageSrc={cropSrc}
+          open={!!cropSrc}
+          onClose={() => setCropSrc(null)}
+          onCropped={handleCropped}
+        />
+      )}
     </div>
   );
 }
