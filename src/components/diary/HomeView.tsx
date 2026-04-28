@@ -75,7 +75,7 @@ function DateRangeFilter({ dateFrom, dateTo, onApply }: {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-1 border border-border rounded-sm px-2 py-1 text-xs bg-background cursor-pointer hover:bg-accent">
+        <button className="chip">
           <CalendarIcon className="h-3 w-3" />
           {fromDate || toDate
             ? `${fromDate ? format(fromDate, "dd.MM.yyyy") : "..."} – ${toDate ? format(toDate, "dd.MM.yyyy") : "..."}`
@@ -93,19 +93,19 @@ function DateRangeFilter({ dateFrom, dateTo, onApply }: {
       >
         <div className="space-y-3">
           <div>
-            <p className="text-xs font-medium mb-1">Alguskuupäev</p>
+            <p className="text-xs font-semibold mb-1">Alguskuupäev</p>
             <Calendar mode="single" selected={fromDate} onSelect={setFromDate}
               className={cn("p-2 pointer-events-auto")} locale={et} />
           </div>
           <div>
-            <p className="text-xs font-medium mb-1">Lõppkuupäev</p>
+            <p className="text-xs font-semibold mb-1">Lõppkuupäev</p>
             <Calendar mode="single" selected={toDate} onSelect={setToDate}
               disabled={(date) => fromDate ? date < fromDate : false}
               className={cn("p-2 pointer-events-auto")} locale={et} />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button onClick={handleDone}
-              className="bg-primary text-primary-foreground px-3 py-1 rounded-sm text-xs cursor-pointer">
+              className="btn-accent px-4 py-1.5 text-xs cursor-pointer">
               Valmis
             </button>
             <button onClick={() => { setFromDate(undefined); setToDate(undefined); onApply("", ""); setOpen(false); }}
