@@ -148,15 +148,15 @@ export default function Index() {
   const activeGroups = groups.filter((g) => !g.deleted_at);
 
   return (
-    <div className="max-w-[500px] mx-auto px-4 pt-4 pb-[70px]">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+    <div className="max-w-[500px] mx-auto px-4 pt-4 pb-[90px]">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
         {avatarUrl && (
-          <Avatar className="h-7 w-7">
+          <Avatar className="h-7 w-7 ring-2 ring-primary/20">
             <AvatarImage src={avatarUrl} alt={displayName || "Profiil"} />
             <AvatarFallback className="text-[10px]">{(displayName || "?")[0].toUpperCase()}</AvatarFallback>
           </Avatar>
         )}
-        <span>Sisse logitud: <strong>{displayName}</strong></span>
+        <span>Sisse logitud: <strong className="text-foreground">{displayName}</strong></span>
       </div>
 
       {view === "home" && <HomeView trainings={activeTrainings} groups={activeGroups} friendCode={friendCode} onUpdateTrainings={setTrainings} onUpdateGroups={setGroups} />}
