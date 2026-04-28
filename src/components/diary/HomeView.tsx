@@ -38,8 +38,7 @@ function VisibilityDropdown({ current, onChange }: { current: string; onChange: 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
-          title="Muuda nähtavust">
+        <button className="chip" title="Muuda nähtavust">
           {isPrivate ? <Lock className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
           <span>{isPrivate ? "Privaatne" : "Sõpradele"}</span>
         </button>
