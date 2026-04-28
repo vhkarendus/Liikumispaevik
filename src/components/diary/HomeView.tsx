@@ -1,4 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+
+const toLocalISO = (d: Date) => {
+  const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, "0"); const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
 import { Lock, Eye, CalendarIcon, ChevronDown, ChevronRight, Pencil } from "lucide-react";
@@ -40,8 +45,8 @@ function VisibilityDropdown({ current, onChange }: { current: string; onChange: 
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onChange("friends")}><Eye className="h-3 w-3 mr-2" /> 👥 Sõpradele nähtav</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChange("private")}><Lock className="h-3 w-3 mr-2" /> 🔒 Privaatne</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("friends")}><Eye className="h-3 w-3 mr-2" /> Sõpradele</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("private")}><Lock className="h-3 w-3 mr-2" /> Privaatne</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -55,10 +60,15 @@ function DateRangeFilter({ dateFrom, dateTo, onApply }: {
   const [toDate, setToDate] = useState<Date | undefined>(dateTo ? new Date(dateTo) : undefined);
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    setFromDate(dateFrom ? new Date(dateFrom) : undefined);
+    setToDate(dateTo ? new Date(dateTo) : undefined);
+  }, [dateFrom, dateTo]);
+
   const handleDone = () => {
     onApply(
-      fromDate ? fromDate.toISOString().slice(0, 10) : "",
-      toDate ? toDate.toISOString().slice(0, 10) : "",
+      fromDate ? toLocalISO(fromDate) : "",
+      toDate ? toLocalISO(toDate) : "",
     );
     setOpen(false);
   };

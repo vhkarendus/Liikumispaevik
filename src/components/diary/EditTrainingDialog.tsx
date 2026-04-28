@@ -174,9 +174,8 @@ export default function EditTrainingDialog({
             <label className="block text-[13px] mb-0.5">Nähtavus</label>
             <select value={visibility} onChange={(e) => setVisibility(e.target.value)}
               className="w-full border border-border rounded-sm px-2 py-1 text-sm bg-background">
-              <option value="friends">Sõpradele nähtav</option>
+              <option value="friends">Sõpradele</option>
               <option value="private">Privaatne</option>
-              <option value="hidden">Peidetud</option>
             </select>
           </div>
           <button onClick={handleSave} disabled={saving}
