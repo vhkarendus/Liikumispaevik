@@ -1,7 +1,13 @@
 import { useState, useMemo } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
-import { Lock, Eye, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
+import { Lock, Eye, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight, RotateCcw, ArrowLeft } from "lucide-react";
+import { useEffect } from "react";
+
+const toLocalISO = (d: Date) => {
+  const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, "0"); const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -42,8 +48,8 @@ function VisibilityDropdown({ current, onChange }: { current: string; onChange: 
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onChange("friends")}><Eye className="h-3 w-3 mr-2" /> 👥 Sõpradele nähtav</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChange("private")}><Lock className="h-3 w-3 mr-2" /> 🔒 Privaatne</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("friends")}><Eye className="h-3 w-3 mr-2" /> Sõpradele</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("private")}><Lock className="h-3 w-3 mr-2" /> Privaatne</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -64,10 +70,16 @@ function DateRangeFilter({ dateFrom, dateTo, onApply }: {
   const [toDate, setToDate] = useState<Date | undefined>(dateTo ? new Date(dateTo) : undefined);
   const [open, setOpen] = useState(false);
 
+  // Sync external resets (e.g. Tühjenda) into the local picker state
+  useEffect(() => {
+    setFromDate(dateFrom ? new Date(dateFrom) : undefined);
+    setToDate(dateTo ? new Date(dateTo) : undefined);
+  }, [dateFrom, dateTo]);
+
   const handleDone = () => {
     onApply(
-      fromDate ? fromDate.toISOString().slice(0, 10) : "",
-      toDate ? toDate.toISOString().slice(0, 10) : "",
+      fromDate ? toLocalISO(fromDate) : "",
+      toDate ? toLocalISO(toDate) : "",
     );
     setOpen(false);
   };
