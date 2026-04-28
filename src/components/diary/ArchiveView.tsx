@@ -1,8 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Training, TrainingGroup } from "@/types/training";
 import { supabase } from "@/integrations/supabase/client";
 import { Lock, Eye, Pencil, Trash2, CalendarIcon, ChevronDown, ChevronRight, RotateCcw, ArrowLeft } from "lucide-react";
-import { useEffect } from "react";
 
 const toLocalISO = (d: Date) => {
   const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, "0"); const day = String(d.getDate()).padStart(2, "0");
