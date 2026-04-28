@@ -5,25 +5,42 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 15%;
-    --card: 0 0% 97%;
-    --card-foreground: 0 0% 15%;
+    --foreground: 220 13% 13%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 13%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 15%;
-    --primary: 210 30% 50%;
+    --popover-foreground: 220 13% 13%;
+
+    /* Strava-style orange */
+    --primary: 16 98% 49%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 10% 92%;
-    --secondary-foreground: 0 0% 15%;
-    --muted: 210 10% 95%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 210 10% 90%;
-    --accent-foreground: 0 0% 15%;
-    --destructive: 0 60% 50%;
+    --primary-glow: 22 100% 58%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 13% 13%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 16 98% 96%;
+    --accent-foreground: 16 98% 35%;
+
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 80%;
-    --input: 0 0% 80%;
-    --ring: 210 30% 50%;
-    --radius: 0.25rem;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 16 98% 49%;
+
+    --radius: 0.75rem;
+
+    --shadow-card: 0 1px 2px 0 hsl(220 13% 13% / 0.04), 0 1px 3px 0 hsl(220 13% 13% / 0.06);
+    --shadow-card-hover: 0 4px 12px -2px hsl(220 13% 13% / 0.08), 0 2px 4px 0 hsl(220 13% 13% / 0.06);
+    --shadow-accent: 0 4px 14px 0 hsl(var(--primary) / 0.25);
+
+    --gradient-accent: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
   }
 }
 
@@ -32,7 +49,39 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    font-family: Arial, Helvetica, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  h1, h2, h3, h4 {
+    @apply font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .workout-card {
+    @apply bg-card rounded-xl border border-border p-4 transition-all duration-200;
+    box-shadow: var(--shadow-card);
+  }
+  .workout-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-1px);
+  }
+  .period-card {
+    @apply bg-card rounded-xl border-l-4 border-l-primary border border-border p-4 transition-all duration-200;
+    box-shadow: var(--shadow-card);
+  }
+  .period-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  .btn-accent {
+    @apply bg-primary text-primary-foreground rounded-full font-semibold transition-all duration-150 active:scale-95;
+    box-shadow: var(--shadow-accent);
+  }
+  .btn-accent:hover {
+    background: hsl(var(--primary) / 0.92);
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted transition-colors;
   }
 }
