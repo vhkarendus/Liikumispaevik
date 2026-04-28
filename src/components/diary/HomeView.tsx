@@ -230,44 +230,43 @@ export default function HomeView({
   };
 
   return (
-    <div>
+    <div className="animate-fade-in">
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-xl font-semibold">Liikumispäevik</h1>
-        <button onClick={() => setPdfDialogOpen(true)}
-          className="flex items-center gap-1 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-2 py-1 text-muted-foreground hover:text-foreground">
+        <h1 className="text-2xl font-extrabold tracking-tight">Liikumispäevik</h1>
+        <button onClick={() => setPdfDialogOpen(true)} className="chip">
           <FileDown className="h-3 w-3" /> PDF
         </button>
       </div>
-      <p className="text-muted-foreground text-sm mb-2">Siia saad oma treeningud kirja panna.</p>
+      <p className="text-muted-foreground text-sm mb-3">Siia saad oma treeningud kirja panna.</p>
 
       {friendCode && (
-        <div className="border border-border rounded-sm p-2 mb-4 bg-card">
-          <span className="text-xs text-muted-foreground">Sinu sõbrakood: </span>
-          <span className="text-sm font-mono font-bold text-primary">{friendCode}</span>
+        <div className="rounded-xl p-3 mb-4 bg-gradient-to-r from-primary to-primary-glow text-primary-foreground shadow-sm">
+          <div className="text-[11px] uppercase tracking-wide opacity-90">Sinu sõbrakood</div>
+          <div className="text-base font-mono font-bold">{friendCode}</div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="border border-border rounded-sm p-3 mb-4 bg-card space-y-2">
-        <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
+      <div className="rounded-xl p-3 mb-4 bg-card border border-border space-y-2 shadow-sm">
+        <div className="text-xs font-semibold text-muted-foreground mb-1 flex items-center uppercase tracking-wide">
           Filtrid ja sorteerimine
           <InfoTooltip text="Filtreeri ja sorteeri oma treeninguid. Perioodid ja üksiktreeningud sorteeritakse koos ühtse ajajoonena. Avalehel kuvatakse ainult sõpradele nähtavaid treeninguid." />
         </div>
         <div className="flex flex-wrap gap-2">
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
+            className="border border-border rounded-full px-3 py-1 text-xs bg-background font-medium">
             <option value="newest">Uuemad enne</option>
             <option value="oldest">Vanemad enne</option>
             <option value="duration_desc">Pikem kestus</option>
             <option value="duration_asc">Lühem kestus</option>
           </select>
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
+            className="border border-border rounded-full px-3 py-1 text-xs bg-background font-medium">
             <option value="">Kõik spordialad</option>
             {trainingTypes.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
           <select value={displayCount} onChange={(e) => setDisplayCount(Number(e.target.value))}
-            className="border border-border rounded-sm px-2 py-1 text-xs bg-background">
+            className="border border-border rounded-full px-3 py-1 text-xs bg-background font-medium">
             {[5, 10, 20, 50].map((n) => <option key={n} value={n}>{n} kirjet</option>)}
           </select>
         </div>
@@ -281,73 +280,102 @@ export default function HomeView({
         </div>
       </div>
 
-      <h2 className="text-base font-medium mb-2">Treeningud</h2>
+      <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground mb-3">Treeningud</h2>
 
       {timeline.length === 0 ? (
         <p className="text-sm text-muted-foreground">Treeninguid pole veel lisatud.</p>
       ) : (
-        timeline.map((item) => {
+        <div className="space-y-3">
+        {timeline.map((item) => {
           if (item.type === "period") {
             const periodVis = item.trainings[0]?.visibility || "friends";
             const totalMin = item.trainings.reduce((s, t) => s + t.duration, 0);
             const isExpanded = expandedPeriods.has(item.group.id);
             return (
-              <div key={item.group.id} className="border border-primary/30 rounded-sm p-3 mb-3 bg-primary/5">
-                <div className="flex items-center justify-between mb-1">
+              <div key={item.group.id} className="period-card animate-scale-in">
+                <div className="flex items-start justify-between mb-2 gap-2">
                   <button
                     onClick={() => togglePeriod(item.group.id)}
-                    className="flex items-center gap-1 text-sm font-bold bg-transparent border-none cursor-pointer text-foreground p-0"
+                    className="flex items-start gap-2 bg-transparent border-none cursor-pointer text-foreground p-0 text-left flex-1 min-w-0"
                   >
-                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    📅 {item.group.name || "Periood"}: {item.group.start_date} – {item.group.end_date}
+                    {isExpanded ? <ChevronDown className="h-5 w-5 mt-0.5 text-primary shrink-0" /> : <ChevronRight className="h-5 w-5 mt-0.5 text-primary shrink-0" />}
+                    <div className="min-w-0">
+                      <div className="text-base font-bold leading-tight">{item.group.name || "Periood"}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{item.group.start_date} – {item.group.end_date}</div>
+                    </div>
                   </button>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => setEditPeriod(item.group)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+                      className="chip" title="Muuda">
                       <Pencil className="h-3 w-3" />
                     </button>
                     <VisibilityDropdown current={periodVis} onChange={(v) => updatePeriodVisibility(item.group.id, v)} />
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground mb-1">{item.trainings.length} treeningut · {totalMin} min kokku</div>
-                {isExpanded && item.trainings.map((t) => (
-                  <div key={t.id} className="text-[13px] py-1 border-t border-border/50">
-                    <span>{t.date} – {t.name} · {t.duration} min{t.note ? ` · ${t.note}` : ""}</span>
-                    {t.effort_type && t.effort_value && (
-                      <span className="text-xs text-muted-foreground ml-1">
-                        ({t.effort_type === "effort" ? `Pingutus: ${t.effort_value}/10` : `Pulss: ${t.effort_value} BPM`})
-                      </span>
-                    )}
+                <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium mb-2">
+                  <span className="text-primary font-bold">{item.trainings.length}</span> treeningut
+                  <span className="text-border">·</span>
+                  <span><span className="text-foreground font-bold">{totalMin}</span> min kokku</span>
+                </div>
+                {isExpanded && (
+                  <div className="space-y-1.5 pt-2 border-t border-border animate-accordion-down">
+                    {item.trainings.map((t) => (
+                      <div key={t.id} className="text-[13px] py-1 flex items-center justify-between gap-2">
+                        <div className="min-w-0 truncate">
+                          <span className="font-semibold">{t.name}</span>
+                          <span className="text-muted-foreground"> · {t.date} · {t.duration} min</span>
+                          {t.note ? <span className="text-muted-foreground"> · {t.note}</span> : null}
+                        </div>
+                        {t.effort_type && t.effort_value && (
+                          <span className="text-[11px] text-muted-foreground shrink-0">
+                            {t.effort_type === "effort" ? `${t.effort_value}/10` : `${t.effort_value} BPM`}
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             );
           } else {
             const t = item.training;
             return (
-              <div key={t.id} className="border border-border rounded-sm p-3 mb-2 bg-card">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold">{t.name}</span>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setEditTraining(t)}
-                      className="flex items-center gap-0.5 text-xs cursor-pointer bg-transparent border border-border rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground">
+              <div key={t.id} className="workout-card animate-scale-in">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="min-w-0">
+                    <div className="text-base font-bold leading-tight">{t.name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{t.date}</div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => setEditTraining(t)} className="chip" title="Muuda">
                       <Pencil className="h-3 w-3" />
                     </button>
                     <VisibilityDropdown current={t.visibility} onChange={(v) => updateVisibility(t.id, v)} />
                   </div>
                 </div>
-                <div className="text-muted-foreground text-[13px]">{t.date} · {t.duration} min</div>
-                {t.note && <div className="text-[13px] mt-0.5">{t.note}</div>}
-                {t.effort_type && t.effort_value && (
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {t.effort_type === "effort" ? `Pingutus: ${t.effort_value}/10` : `Pulss: ${t.effort_value} BPM`}
+                <div className="flex items-center gap-4 mt-2">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Kestus</div>
+                    <div className="text-sm font-bold">{t.duration} min</div>
                   </div>
-                )}
-                <div className="text-muted-foreground text-[11px] mt-1">Lisatud: {formatDateTime(t.created_at)}</div>
+                  {t.effort_type && t.effort_value && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                        {t.effort_type === "effort" ? "Pingutus" : "Pulss"}
+                      </div>
+                      <div className="text-sm font-bold">
+                        {t.effort_type === "effort" ? `${t.effort_value}/10` : `${t.effort_value} BPM`}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {t.note && <div className="text-[13px] mt-2 text-foreground/80">{t.note}</div>}
+                <div className="text-muted-foreground text-[10px] mt-2">Lisatud: {formatDateTime(t.created_at)}</div>
               </div>
             );
           }
-        })
+        })}
+        </div>
       )}
 
       {editTraining && (
