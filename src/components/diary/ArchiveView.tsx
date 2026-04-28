@@ -93,7 +93,15 @@ function DateRangeFilter({ dateFrom, dateTo, onApply }: {
             : "Kuupäeva filter"}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-3 max-h-[80vh] overflow-y-auto" align="start" side="bottom" collisionPadding={8}>
+      <PopoverContent
+        className="w-auto p-3 overflow-y-auto overscroll-contain"
+        style={{ maxHeight: "min(80vh, var(--radix-popover-content-available-height))" }}
+        align="start"
+        side="bottom"
+        sideOffset={8}
+        collisionPadding={8}
+        avoidCollisions
+      >
         <div className="space-y-3">
           <div>
             <p className="text-xs font-medium mb-1">Alguskuupäev</p>
