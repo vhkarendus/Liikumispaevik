@@ -5,6 +5,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Training, TrainingGroup } from "@/types/training";
 import { Camera } from "lucide-react";
 import { toast } from "sonner";
+import AvatarCropDialog from "./AvatarCropDialog";
 
 function effortLabel(t: Training) {
   if (!t.effort_type || !t.effort_value) return null;
@@ -23,6 +24,7 @@ export default function ProfileView({
   const [joinDate, setJoinDate] = useState<string>("...");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const fallbackAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
@@ -53,15 +55,22 @@ export default function ProfileView({
 
   const shownAvatar = avatarUrl || fallbackAvatar;
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Pilt peab olema väiksem kui 5MB"); return; }
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error("Pilt peab olema väiksem kui 10MB"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(String(reader.result));
+    reader.readAsDataURL(file);
+  };
 
+  const handleCropped = async (blob: Blob) => {
+    if (!user) return;
+    setCropSrc(null);
     setUploading(true);
-    const ext = file.name.split(".").pop() || "png";
-    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    const path = `${user.id}/avatar-${Date.now()}.jpg`;
+    const { error: upErr } = await supabase.storage.from("avatars").upload(path, blob, { upsert: true, contentType: "image/jpeg" });
     if (upErr) { setUploading(false); toast.error("Üleslaadimine ebaõnnestus"); return; }
     const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
     const url = pub.publicUrl;
@@ -90,7 +99,7 @@ export default function ProfileView({
           >
             <Camera className="h-3 w-3" />
           </button>
-          <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
         </div>
         <div>
           <div className="text-base font-bold">{displayName}</div>
