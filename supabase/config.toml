@@ -1,3 +1,4 @@
-project_id = "ctfuwsaqhnxznqczikqx"
+project_id = "liikumispaevik"
+
 [auth]
 minimum_password_length = 8
