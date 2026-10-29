@@ -42,3 +42,31 @@ npm i
 
 # 4. Käivita arendusserver
 npm run dev
+```
+
+## Supabase'i projekti loomine
+
+1. Loo tasuta projekt aadressil https://supabase.com.
+2. Rakenda andmebaasi struktuur (`supabase/migrations`, kõik failid järjekorras):
+   ```sh
+   npx supabase login
+   npx supabase link --project-ref <projekt>
+   npx supabase db push
+   ```
+   Teise võimalusena kopeeri iga faili SQL Supabase'i **SQL Editori** ja käivita.
+3. **Authentication → Providers → Email**: lülita välja „Confirm email“ (rakendus kasutab kasutajanimesid, mitte päris e-posti aadresse) ja määra parooli minimaalseks pikkuseks 8.
+4. **Project Settings → API Keys**: *Project URL* ja *publishable key* on failis `.env` (muutujad `VITE_SUPABASE_URL` ja `VITE_SUPABASE_PUBLISHABLE_KEY`).
+
+## Avaldamine GitHub Pages'is
+
+Rakendus avaldatakse automaatselt GitHub Pages'is iga kord, kui `main` harusse lisatakse muudatusi (`.github/workflows/deploy.yml`).
+
+Ühekordne seadistus:
+
+1. GitHubis: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. Supabase'is: **Authentication → URL Configuration**
+   - Site URL: `https://<kasutaja>.github.io/<repo>/`
+   - Redirect URLs: lisa sama aadress (ja kohalikuks arenduseks `http://localhost:8080/`).
+3. Google'iga sisselogimiseks: loo Google Cloud Console'is OAuth Client ID (tüüp „Web application“), lisa *Authorized redirect URI*-ks `https://<projekt>.supabase.co/auth/v1/callback` ning sisesta Client ID ja Client Secret Supabase'is: **Authentication → Providers → Google**.
+
+Supabase'i aadress ja avalik (publishable) võti jõuavad paratamatult brauserisse ega ole saladus. Andmeid kaitsevad andmebaasi Row Level Security reeglid. Saladusi (`service_role` / secret key, Google Client Secret) ei tohi kunagi lisada `.env` faili ega repositooriumisse.

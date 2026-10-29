@@ -130,7 +130,7 @@ export default function FriendsView() {
 
   // Search friend codes
   useEffect(() => {
-    if (searchCode.length < 2) { setSearchResults([]); return; }
+    if (searchCode.trim().length < 8) { setSearchResults([]); return; }
     const timer = setTimeout(async () => {
       const { data } = await supabase.rpc("search_friend_code", { p_code: searchCode });
       if (data) {
