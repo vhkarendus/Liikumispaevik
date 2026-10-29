@@ -18,8 +18,8 @@ export default function Register() {
       setError("Kasutajanimi peab olema pikem kui 4 tähemärki");
       return;
     }
-    if (password.length < 5) {
-      setError("Parool peab olema pikem kui 4 tähemärki");
+    if (password.length < 8) {
+      setError("Parool peab olema vähemalt 8 tähemärki");
       return;
     }
     if (password !== password2) {
